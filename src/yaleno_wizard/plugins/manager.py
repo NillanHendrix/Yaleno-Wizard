@@ -197,6 +197,8 @@ def check_updates(profile: Profile | None = None, plugin_ids: list[str] | None =
     for lp in discover(profile):
         if plugin_ids is not None and lp.id not in plugin_ids:
             continue
+        if plugin_ids is None and lp.origin == BUILTIN and not lp.enabled:
+            continue  # mitgelieferte, ungenutzte Plugins kommen mit Programm-Updates
         if not lp.plugin or not lp.plugin.source:
             continue
         out.checked += 1

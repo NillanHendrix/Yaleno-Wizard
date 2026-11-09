@@ -6,6 +6,7 @@
     yaleno-wizard --config DATEI     andere Einstellungsdatei (YAML) verwenden
     yaleno-wizard --install          ins Startmenü eintragen (Linux; Windows nutzt den Installer)
     yaleno-wizard --uninstall        Eintrag wieder entfernen
+    yaleno-wizard plugin …           Plugins verwalten (list, install, update … – siehe plugin --help)
 """
 
 from __future__ import annotations
@@ -15,6 +16,11 @@ import sys
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["plugin"]:
+        from yaleno_wizard.plugins.cli import main as plugin_main
+        return plugin_main(argv[1:])
+
     parser = argparse.ArgumentParser(prog="yaleno-wizard", description="Geräte über einen zentralen Speicher abgleichen.")
     parser.add_argument("--version", action="store_true", help="Version anzeigen")
     parser.add_argument("--config", metavar="DATEI", help="Einstellungsdatei (YAML)")
@@ -23,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--sync", action="store_true", help="einmal ohne Oberfläche abgleichen")
     mode.add_argument("--install", action="store_true", help="ins Startmenü eintragen (mit Logo)")
     mode.add_argument("--uninstall", action="store_true", help="Startmenü-Eintrag und Programm entfernen")
-    args, qt_args = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
+    args, qt_args = parser.parse_known_args(argv)
 
     if args.version:
         from yaleno_wizard import __version__

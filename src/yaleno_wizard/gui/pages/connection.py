@@ -142,8 +142,12 @@ class ConnectionPage(QWizardPage):
         lay.addWidget(self.rb_local)
         lay.addWidget(self.local_box)
         lay.addStretch(1)
+        self.plugin_btn = QPushButton("Plugins …")
+        self.plugin_btn.setToolTip("Plugins verwalten – z. B. Anmeldung per OIDC oder im Browser freischalten.")
+        self.plugin_btn.clicked.connect(self._plugins)
         row = QHBoxLayout()
         row.addWidget(self.test_btn)
+        row.addWidget(self.plugin_btn)
         row.addStretch(1)
         row.addWidget(self.load_btn)
         row.addWidget(self.save_btn)
@@ -210,6 +214,8 @@ class ConnectionPage(QWizardPage):
             loaded.backup_name = cur.backup_name
         if cur.sync_categories is not None:
             loaded.sync_categories, loaded.sync_excludes = cur.sync_categories, cur.sync_excludes
+        if cur.plugins_enabled:
+            loaded.plugins_enabled = cur.plugins_enabled
         self.state.profile = loaded
         self.state.close_storage()
         self._fill_fields(loaded)
@@ -380,7 +386,13 @@ class ConnectionPage(QWizardPage):
             msg += f"<br>⚠ Einstellungen konnten nicht gespeichert werden: {exc}"
         self.status.setText(msg)
         self._update_remember_labels()
+        from ..plugin_dialog import offer_from_store
+        offer_from_store(self, self.state)
         return True
+
+    def _plugins(self) -> None:
+        from ..plugin_dialog import open_plugin_dialog
+        open_plugin_dialog(self, self.state)
 
     def _test(self) -> None:
         self._connect()

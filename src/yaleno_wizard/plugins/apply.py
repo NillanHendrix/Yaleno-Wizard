@@ -25,6 +25,7 @@ def apply_plugins(catalog: Catalog, plugins: list[Plugin], os_name: OSName) -> C
                     raise ValueError(f"Kategorie „{spec.id}“ gibt es schon")
                 cat = spec.to_category(os_name)
                 if cat is not None:
+                    cat = replace(cat, plugin=p.id)
                     index[cat.id] = len(cats)
                     cats.append(cat)
             for ext in p.extends:

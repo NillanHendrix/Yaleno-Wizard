@@ -497,6 +497,14 @@ def run_sync(
         else:
             res.revision = plan.head
 
+        if catalog.plugins:
+            from ..plugins.distribute import publish
+            try:
+                for name in publish(store, catalog.plugins):
+                    reporter.log(f"Plugin „{name}“ im Speicher abgelegt (für andere Geräte).")
+            except Exception as exc:  # Plugins dürfen den Abgleich nie scheitern lassen
+                reporter.log(f"Plugins konnten nicht im Speicher abgelegt werden: {exc}")
+
     state.revision = res.revision
     state.save()
     reporter.progress(total, total, "fertig")

@@ -9,6 +9,7 @@ Layout auf dem Speicher::
         objects/<ab>/<sha256>              Dateiinhalte (inhaltsadressiert, dedupliziert)
         revisions/00000042.json.gz         vollständiger Dateibaum der Version 42
         revisions/00000042.info.json       Kurzinfo (Datum, Gerät, Änderungen)
+        plugins/<id>.yml                   Plugins, die andere Geräte übernehmen können
 
 Jede Version beschreibt den *gesamten* Bestand. Die Versionen dienen nur dazu,
 zwischen Ständen vor- und zurückzuspringen; ein Inhalt wird nur einmal gespeichert,
@@ -348,6 +349,26 @@ class Store:
         categories = {**(head.categories if head else {}), **old.categories}
         return self.commit(old.entries, categories, devices, host, os_name,
                            f"Zurückgesetzt auf Version {number}")
+
+    # ------------------------------------------------------------ Plugins
+    def _plugin_path(self, plugin_id: str) -> str:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", plugin_id):
+            raise ValueError(f"Ungültige Plugin-ID: {plugin_id!r}")
+        return self._p("plugins", f"{plugin_id}.yml")
+
+    def list_plugins(self) -> list[str]:
+        d = self._p("plugins")
+        if not self.storage.is_dir(d):
+            return []
+        return sorted(n[:-4] for n in self.storage.listdir(d)
+                      if n.endswith(".yml") and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", n[:-4]))
+
+    def get_plugin(self, plugin_id: str) -> str:
+        return self.storage.read_bytes(self._plugin_path(plugin_id)).decode("utf-8")
+
+    def put_plugin(self, plugin_id: str, text: str) -> None:
+        self.storage.makedirs(self._p("plugins"))
+        self.storage.write_bytes_atomic(self._plugin_path(plugin_id), text.encode("utf-8"))
 
     # ------------------------------------------------------------ Sperre
     def _read_lock(self) -> dict | None:

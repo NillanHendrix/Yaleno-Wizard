@@ -31,9 +31,12 @@ class BackgroundSync(QObject):
 
     finished = Signal(object)  # BackgroundOutcome | str (Fehler)
 
-    def __init__(self, parent=None, sync_fn=sync_once, show_tray: bool = True):
+    def __init__(self, parent=None, sync_fn=sync_once, show_tray: bool = True, plugin_check_fn=None):
         super().__init__(parent)
         self._sync_fn = sync_fn
+        self._plugin_check_fn = plugin_check_fn
+        self._plugin_worker: Worker | None = None
+        self.plugin_updates: list = []
         self.worker: Worker | None = None
         self.last: str = "noch nicht abgeglichen"
         self.paused = False
@@ -67,9 +70,12 @@ class BackgroundSync(QObject):
         self.a_pause.toggled.connect(self.set_paused)
         a_wizard = QAction("Yaleno Wizard öffnen …", menu)
         a_wizard.triggered.connect(self.open_wizard)
+        self.a_plugins = QAction("Plugin-Updates installieren …", menu)
+        self.a_plugins.triggered.connect(self.open_plugins)
+        self.a_plugins.setVisible(False)
         a_quit = QAction("Hintergrund-Abgleich beenden", menu)
         a_quit.triggered.connect(self.quit)
-        for a in (self.a_status, None, a_now, self.a_pause, a_wizard, None, a_quit):
+        for a in (self.a_status, None, a_now, self.a_pause, a_wizard, self.a_plugins, None, a_quit):
             menu.addSeparator() if a is None else menu.addAction(a)
         self._menu = menu
         self.tray.setContextMenu(menu)
@@ -159,6 +165,42 @@ class BackgroundSync(QObject):
         if self.tray is not None:
             self.tray.setIcon(self._icon())
         self._update_tooltip()
+        self.check_plugin_updates()
+
+    # ------------------------------------------------------------------ Plugin-Updates
+    def check_plugin_updates(self, force: bool = False) -> None:
+        """Höchstens einmal am Tag nach Plugin-Updates suchen (im Hintergrund)."""
+        from ..plugins import manager
+        if self._plugin_worker is not None and self._plugin_worker.isRunning():
+            return
+        if not force and not manager.update_due(self.profile):
+            return
+        fn = self._plugin_check_fn or manager.check_updates
+        profile = self.profile
+        self._plugin_worker = Worker(lambda _rep: fn(profile), self)
+        self._plugin_worker.succeeded.connect(self._plugins_checked)
+        self._plugin_worker.failed.connect(lambda msg: append_log([f"Plugin-Updates: {msg}"]))
+        self._plugin_worker.start()
+
+    def _plugins_checked(self, res) -> None:
+        self.plugin_updates = list(res.updates)
+        if res.errors:
+            append_log([f"Plugin-Updates: {e}" for e in res.errors])
+        if self.tray is not None:
+            self.a_plugins.setVisible(bool(self.plugin_updates))
+        if self.plugin_updates:
+            names = ", ".join(f"{u.current.name} {u.pending.plugin.version}" for u in self.plugin_updates)
+            self._notify("Plugin-Updates verfügbar", f"{names} – im Menü „Plugin-Updates installieren …“.")
+
+    def open_plugins(self) -> None:
+        from .plugin_dialog import PluginDialog
+        dlg = PluginDialog(Profile.load())
+        dlg.updates = {u.id: u for u in self.plugin_updates}
+        dlg.reload()
+        dlg.exec()
+        self.plugin_updates = [u for u in self.plugin_updates if u.id in dlg.updates]
+        if self.tray is not None:
+            self.a_plugins.setVisible(bool(self.plugin_updates))
 
     def open_wizard(self) -> None:
         from .wizard import YalenoWizard
@@ -173,6 +215,8 @@ class BackgroundSync(QObject):
         if self.worker is not None and self.worker.isRunning():
             self.worker.cancel()
             self.worker.wait(30000)
+        if self._plugin_worker is not None and self._plugin_worker.isRunning():
+            self._plugin_worker.wait(30000)
         QApplication.quit()
 
 
