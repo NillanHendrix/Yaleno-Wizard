@@ -66,6 +66,9 @@ def main(argv: list[str] | None = None) -> int:
         from yaleno_wizard.gui.tray import run_background
         return run_background(app)
 
+    from yaleno_wizard.gui.app_lock_dialog import ensure_app_unlocked
+    if not ensure_app_unlocked():
+        return 0
     from yaleno_wizard.gui.wizard import YalenoWizard
     wizard = YalenoWizard()
     wizard.show()

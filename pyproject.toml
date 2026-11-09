@@ -16,6 +16,7 @@ dependencies = [
     "PyYAML>=6.0",
     "keyring>=24",
     "cryptography>=42",
+    "fido2>=1.1",
 ]
 
 [project.optional-dependencies]

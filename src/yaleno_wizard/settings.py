@@ -114,6 +114,9 @@ class Profile:
     bg_autostart: bool = False
     plugins_enabled: list[str] = field(default_factory=list)
     plugins_check_updates: bool = True
+    app_lock_enabled: bool = False
+    app_lock_password: str = ""   # scrypt-Hash, nie das Passwort selbst
+    app_lock_keys: list[dict] = field(default_factory=list)  # [{label, credential}]
 
     # ------------------------------------------------------------------ YAML
     def to_yaml_dict(self, include_secrets: bool = True) -> dict:
@@ -147,6 +150,11 @@ class Profile:
                 "enabled": self.plugins_enabled,
                 "check_updates": self.plugins_check_updates,
             },
+            **({"app_lock": {
+                "enabled": self.app_lock_enabled,
+                "password_hash": self.app_lock_password,
+                "security_keys": self.app_lock_keys,
+            }} if self.app_lock_enabled or self.app_lock_password or self.app_lock_keys else {}),
         }
 
     @classmethod
@@ -161,6 +169,10 @@ class Profile:
             return v
 
         st, sync, bg, pl = sec(d, "storage"), sec(d, "sync"), sec(d, "background"), sec(d, "plugins")
+        lock = sec(d, "app_lock")
+        lock_keys = lock.get("security_keys") or []
+        if not isinstance(lock_keys, list) or not all(isinstance(k, dict) and k.get("credential") for k in lock_keys):
+            raise ConfigError("app_lock.security_keys muss eine Liste mit credential-Einträgen sein.")
         wd, sf, lo = sec(st, "webdav"), sec(st, "sftp"), sec(st, "local")
         typ = str(st.get("type", "sftp")).lower()
         if typ == "nextcloud":
@@ -206,6 +218,10 @@ class Profile:
             bg_autostart=bool(bg.get("autostart", False)),
             plugins_enabled=[str(x) for x in enabled],
             plugins_check_updates=bool(pl.get("check_updates", True)),
+            app_lock_enabled=bool(lock.get("enabled", False)),
+            app_lock_password=str(lock.get("password_hash") or ""),
+            app_lock_keys=[{"label": str(k.get("label") or "Security-Key"), "credential": str(k["credential"])}
+                           for k in lock_keys],
         )
 
     def to_yaml(self, include_secrets: bool = True) -> str:

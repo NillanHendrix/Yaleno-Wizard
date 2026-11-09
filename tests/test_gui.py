@@ -397,3 +397,24 @@ def test_encryption_and_unlock_dialogs(app, tmp_path, monkeypatch):
     ud.secret.setText(codes[0])
     ud._try()
     assert fresh.unlocked and load_store_key(store.id) is not None
+
+
+def test_app_unlock_dialog(app, monkeypatch):
+    from yaleno_wizard.gui.app_lock_dialog import AppUnlockDialog, ensure_app_unlocked
+    from yaleno_wizard.plugins import manager
+    from yaleno_wizard.security import app_lock
+    from yaleno_wizard.settings import Profile
+
+    monkeypatch.setattr(app_lock, "HASH_N", 2 ** 10)
+    prof = Profile()
+    assert ensure_app_unlocked(prof)  # keine Sperre
+    app_lock.set_password(prof, "geheim1")
+    app_lock.set_enabled(prof, True)
+    manager.set_enabled("app-sperre", True, prof)
+    dlg = AppUnlockDialog(Profile.load())
+    dlg.pw.setText("falsch")
+    dlg._try()
+    assert dlg.result() == 0 and "Falsches" in dlg.error.text()
+    dlg.pw.setText("geheim1")
+    dlg._try()
+    assert dlg.result() == 1

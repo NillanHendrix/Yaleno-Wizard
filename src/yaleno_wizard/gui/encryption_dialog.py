@@ -227,13 +227,14 @@ class EncryptionDialog(QDialog):
 
     def _add_fido2(self) -> None:
         from ..security.fido2 import Fido2Error, add_store_slot
+        from .app_lock_dialog import gui_backend
         label, ok = QInputDialog.getText(self, "Security-Key", "Bezeichnung (z. B. „YubiKey blau“):",
                                          text="Security-Key")
         if not ok:
             return
         self.status.setText("Security-Key berühren bzw. bestätigen …")
         try:
-            add_store_slot(self.store, self.host, label or "Security-Key")
+            add_store_slot(self.store, self.host, label or "Security-Key", gui_backend(self, self.status))
         except (Fido2Error, CryptoError, StorageError) as exc:
             QMessageBox.warning(self, "Security-Key", str(exc))
             self.status.setText("")

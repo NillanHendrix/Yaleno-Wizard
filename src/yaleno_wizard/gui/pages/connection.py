@@ -148,6 +148,10 @@ class ConnectionPage(QWizardPage):
         row = QHBoxLayout()
         row.addWidget(self.test_btn)
         row.addWidget(self.plugin_btn)
+        self.lock_btn = QPushButton("App-Sperre …")
+        self.lock_btn.setToolTip("Wizard nur nach Passwort oder Security-Key/Passkey öffnen.")
+        self.lock_btn.clicked.connect(self._app_lock)
+        row.addWidget(self.lock_btn)
         row.addStretch(1)
         row.addWidget(self.load_btn)
         row.addWidget(self.save_btn)
@@ -164,6 +168,7 @@ class ConnectionPage(QWizardPage):
         self._update_pub()
         self._update_remember_labels()
         self._fill_secrets(p)
+        self._update_features()
 
     # ------------------------------------------------------------------ Anmeldedaten / Datei
     def _update_remember_labels(self) -> None:
@@ -408,6 +413,16 @@ class ConnectionPage(QWizardPage):
     def _plugins(self) -> None:
         from ..plugin_dialog import open_plugin_dialog
         open_plugin_dialog(self, self.state)
+        self._update_features()
+
+    def _app_lock(self) -> None:
+        from ..app_lock_dialog import AppLockSettingsDialog
+        AppLockSettingsDialog(self.state.profile, self).exec()
+
+    def _update_features(self) -> None:
+        """Knöpfe für Funktionen ein-/ausblenden, die Plugins freischalten."""
+        from ...plugins.registry import feature_enabled
+        self.lock_btn.setVisible(feature_enabled("app_lock", self.state.profile))
 
     def _test(self) -> None:
         self._connect()

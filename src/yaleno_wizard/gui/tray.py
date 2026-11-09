@@ -193,6 +193,9 @@ class BackgroundSync(QObject):
             self._notify("Plugin-Updates verfügbar", f"{names} – im Menü „Plugin-Updates installieren …“.")
 
     def open_plugins(self) -> None:
+        from .app_lock_dialog import ensure_app_unlocked
+        if not ensure_app_unlocked():
+            return
         from .plugin_dialog import PluginDialog
         dlg = PluginDialog(Profile.load())
         dlg.updates = {u.id: u for u in self.plugin_updates}
@@ -207,6 +210,9 @@ class BackgroundSync(QObject):
         if getattr(self, "_wizard", None) is not None and self._wizard.isVisible():
             self._wizard.raise_()
             self._wizard.activateWindow()
+            return
+        from .app_lock_dialog import ensure_app_unlocked
+        if not ensure_app_unlocked():
             return
         self._wizard = YalenoWizard()
         self._wizard.show()
@@ -236,6 +242,9 @@ def run_background(app: QApplication) -> int:
             box.addButton(QMessageBox.StandardButton.Close)
             box.exec()
             if box.clickedButton() is open_btn:
+                from .app_lock_dialog import ensure_app_unlocked
+                if not ensure_app_unlocked():
+                    return 0
                 from .wizard import YalenoWizard
                 w = YalenoWizard()
                 w.show()

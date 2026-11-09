@@ -98,10 +98,11 @@ class UnlockDialog(QDialog):
 
     def _fido2(self) -> None:
         from ..security.fido2 import Fido2Error, unlock_store
+        from .app_lock_dialog import gui_backend
         self.error.setText("Security-Key berühren bzw. bestätigen …")
         QApplication.processEvents()
         try:
-            keys = unlock_store(self.store)
+            keys = unlock_store(self.store, gui_backend(self, self.error))
         except (Fido2Error, CryptoError, StorageError) as exc:
             self.error.setText(str(exc))
             return
