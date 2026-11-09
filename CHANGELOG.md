@@ -8,6 +8,16 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
 ### Hinzugefügt
 
+- 🧩 **Plugins als YAML-Dateien** (`type: catalog` für weitere Programme, `type: feature` für
+  Funktionen) mit **Plugin-Manager**: Dialog „Plugins …“, `yaleno-wizard plugin …`, Updates über die
+  Quell-URL je Plugin, täglicher Update-Hinweis im Infobereich, Verteilung über den Speicher an andere Geräte.
+- 🎮 Mitgeliefertes Plugin **Prism Launcher (Minecraft)**: Einstellungen, Konten und Instanzen.
+- 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers (AES-256-GCM, auch Dateinamen und Verlauf),
+  Passwort + Wiederherstellungsschlüssel, absturzsichere Umstellung, `yaleno-wizard encryption …`.
+- 🔑 **Security-Keys/Passkeys (FIDO2)** zum Entsperren des Speichers und für die App-Sperre.
+- 🔒 **App-Sperre**: Wizard öffnet sich erst nach Passwort oder Security-Key.
+- 🌐 **Nextcloud-Anmeldung im Browser** (Login Flow v2, auch per Passkey/2FA) und 🪪 **OIDC**
+  (PKCE, Refresh-Token im Schlüsselbund, Bearer-Zugriff auf WebDAV).
 - 🧙 **Logo** (Zauberhut in Abgleich-Pfeilen) für Fenster, Taskleiste, Infobereich und Programmdatei.
 - 🪟 **Windows-Installer** (`yaleno-wizard-setup-<version>.exe`): Startmenü-Einträge mit Logo
   (Wizard, Hintergrund-Abgleich, Deinstallieren), optional Desktop-Symbol, ohne Admin-Rechte.

@@ -19,6 +19,7 @@ offen ist. Bedienung und Dateiformate für Benutzer stehen im [README](../README
 11. [Bewusste Entscheidungen](#11-bewusste-entscheidungen)
 12. [Bekannte Grenzen und offene Punkte](#12-bekannte-grenzen-und-offene-punkte)
 13. [Logo und Installer](#13-logo-und-installer)
+14. [Plugins, Verschlüsselung und Anmeldung](#14-plugins-verschlüsselung-und-anmeldung)
 
 ---
 
@@ -53,21 +54,29 @@ verfügbar“:
 | 8 | „Der Installer unter Linux geht immer noch nicht: *file not found*“ | Ursache: `install.sh` fand die Programmdatei nur im Release-Archiv. **Behoben:** `install.sh` sucht auch in `dist/`, verständliche Fehlermeldung, `--uninstall` ohne Installation; neues `scripts/pack_linux.sh` (auch im Workflow), 9 Tests. Siehe [Abschnitt 13](#13-logo-und-installer). |
 
 Umfang des Umbaus (Schritte 2–4, Commit `ab56463`): 41 Dateien, +4479 / −815 Zeilen.
-Aktueller Stand: 74 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
+| 9 | „Plugin-Funktionalität per YAML, Plugin-Manager mit Verwaltung und Updates“ – gewünscht u. a. für Prism Launcher, Verschlüsselung, Passkeys und OIDC | Plugin-System, Plugin-Manager (Dialog, Kommandozeile, Update-Hinweis), Verteilung über den Speicher, Ende-zu-Ende-Verschlüsselung, Security-Keys/Passkeys, App-Sperre, Nextcloud-Login im Browser, OIDC. Branch `plugins`, 6 Commits. Siehe [Abschnitt 14](#14-plugins-verschlüsselung-und-anmeldung). |
+
+Aktueller Stand: 131 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
 
 ## 3. Architektur
 
 ```
 src/yaleno_wizard/
-├── __main__.py            Einstieg: Wizard | --background | --sync | --config
+├── __main__.py            Einstieg: Wizard | --background | --sync | --config | plugin … | encryption …
 ├── settings.py            YAML-Einstellungsdatei (Profile), Pfade
-├── credentials.py         Passwörter: Schlüsselbund oder Datei
+├── credentials.py         Passwörter, Speicherschlüssel, OIDC-Token: Schlüsselbund oder Datei
+├── encryption_cli.py      NEU  yaleno-wizard encryption …
+├── plugins/               NEU  YAML-Plugins: model (Format), registry (laden), apply (Katalog),
+│                               manager (installieren/Updates), distribute (Speicher), cli, builtin/*.yml
+├── security/              NEU  fido2.py (Security-Keys/Passkeys), app_lock.py (App-Sperre)
 ├── autostart.py           Autostart (Linux .desktop / Windows Run-Schlüssel)
 ├── install.py             NEU  Startmenü-Eintrag mit Logo (--install / --uninstall)
 ├── assets/                NEU  Logo: yaleno.svg (Vorlage), PNG 16–512 px, yaleno.ico
-├── catalog/               Kategorien und Pfad-Platzhalter (unverändert)
+├── catalog/               Kategorien und Pfad-Platzhalter; catalog_for() baut aktive Plugins ein
 ├── core/
-│   ├── store.py           NEU  zentraler Speicher: Objekte, Versionen, HEAD, Sperre
+│   ├── store.py           NEU  zentraler Speicher: Objekte, Versionen, HEAD, Sperre, Plugins, Verschlüsselung
+│   ├── crypto.py          NEU  AES-256-GCM-Ströme, Schlüsselplätze
+│   ├── encryption.py      NEU  Verschlüsselung einschalten, Schlüsselplätze verwalten
 │   ├── sync.py            NEU  Drei-Wege-Abgleich: Planen + Ausführen
 │   ├── background.py      NEU  Abgleich ohne Oberfläche, Sicherheitsbremsen
 │   ├── restore.py         angepasst: holt Dateien aus beliebiger Version
@@ -78,12 +87,17 @@ src/yaleno_wizard/
 ├── storage/
 │   ├── base.py            + create_exclusive() (für die Sperre)
 │   ├── local.py / sftp.py + create_exclusive()
-│   ├── webdav.py          NEU  WebDAV/Nextcloud
+│   ├── webdav.py          NEU  WebDAV/Nextcloud (Basic oder beliebige requests-Auth)
+│   ├── auth.py            NEU  Nextcloud Login Flow v2, OIDC (PKCE, Loopback, Bearer + Refresh)
 │   └── connect.py         NEU  Speicher aus Einstellungen öffnen (Wizard + Hintergrund)
 └── gui/
     ├── pages/history.py   NEU  Verlauf (ersetzt snapshot.py)
     ├── tray.py            NEU  Hintergrund-Abgleich im Infobereich
     ├── background_dialog.py NEU Einstellungen Hintergrund-Abgleich
+    ├── plugin_dialog.py   NEU  Plugin-Manager
+    ├── encryption_dialog.py / unlock_dialog.py  NEU  Verschlüsselung, Entsperren
+    ├── app_lock_dialog.py NEU  App-Sperre (Entsperren beim Start, Einstellungen)
+    ├── browser_login.py   NEU  Warte-Fenster für Anmeldungen im Browser
     └── übrige Seiten      angepasst
 
 packaging/
@@ -280,14 +294,18 @@ Dateien: `core/background.py`, `gui/tray.py`, `autostart.py`, `__main__.py`
 
 ## 10. Tests
 
-74 Tests, laufen in ca. 6 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
+131 Tests, laufen in ca. 7 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
 
 | Datei | Tests | Inhalt |
 |---|---|---|
 | `test_sync.py` | 19 | Zwei simulierte Geräte an einem Speicher: Erstabgleich, neues Gerät, Änderungen/Löschungen, Konflikte (alle 3 Regeln), Abwahl, Linux ↔ Windows, Verlauf + Zurücksetzen + wieder Vorspringen, Ablageordner, Pfad-Ausbruch, beschädigte Objekte, Sperre, Änderung zwischen Planen und Ausführen, Probelauf, Abbruch |
 | `test_settings_background.py` | 20 | YAML hin und zurück, Rechte 0600, handgeschriebene Datei, Fehlermeldungen, Übernahme `profile.json`, Schlüsselbund + Rückfall, Hintergrund-Abgleich mit Abwahl, Bremse bei Massenlöschung, fehlender Grundordner, `--sync` mit `--config`, Autostart; Logo-Dateien (PNG/ICO gültig), `--install`/`--uninstall` unter Linux inkl. Autostart-Umstellung, `.desktop` mit `desktop-file-validate` |
 | `test_webdav.py` | 7 | Gegen echten WebDAV-Server (WsgiDAV): Grundfunktionen inkl. Umlaute/Leerzeichen, großer Upload, Abbruch, exklusives Anlegen + Sperre, Abgleich zweier Geräte; Nextcloud-Erkennung (simuliert) |
-| `test_gui.py` | 8 | Wizard offscreen: Abgleichen, erneut abgleichen, Datei aus Version holen, Speicher zurücksetzen; Verbindung über WebDAV inkl. falschem Passwort und Vorausfüllen aus dem Schlüsselbund; Abwahl-Muster; Infobereich; Hintergrund-Dialog; App-Symbol in allen Größen |
+| `test_plugins.py` | 27 | Plugin-Format und Fehlermeldungen, OS-spezifische Pfade, Kollisionen, `extend`, Einbau in den Katalog + Scanner (inkl. Prism Launcher), Installieren/Entfernen/Aktivieren, Updates, Vorrang lokal/mitgeliefert, Kommandozeile, Verteilung über den Speicher, `run_sync` legt Plugins ab |
+| `test_crypto.py` | 15 | Blöcke (Größen, Manipulation, Kürzen, falscher Ort/Schlüssel), Schlüsselplätze, Umstellung eines bestehenden Speichers + zweites Gerät, leerer Speicher, Abbruch mitten in der Umstellung, Plätze verwalten, verschlüsselte Plugins, Hintergrund mit gemerktem Schlüssel, `encryption`-Kommandozeile |
+| `test_security.py` | 4 | Security-Key als Schlüsselplatz und App-Sperre mit einem Fake-Authenticator, Key ohne PRF, PRF-Auswertung |
+| `test_auth.py` | 6 | Gegen lokalen Stub-Server: Login Flow v2 inkl. Abbruch, OIDC mit PKCE + Loopback, Bearer mit Erneuerung (abgelaufen, widerrufen), falscher `state`, https-Pflicht |
+| `test_gui.py` | 13 | Plugin-Dialog (aktivieren, installieren, Update), Update-Hinweis im Infobereich, Verschlüsseln + Entsperren, App-Sperre, OIDC-/Login-Felder der Verbindungsseite; Wizard offscreen: Abgleichen, erneut abgleichen, Datei aus Version holen, Speicher zurücksetzen; Verbindung über WebDAV inkl. falschem Passwort und Vorausfüllen aus dem Schlüsselbund; Abwahl-Muster; Infobereich; Hintergrund-Dialog; App-Symbol in allen Größen |
 | `test_sftp.py` | 4 | Gegen echten SFTP-Testserver: Host-Key-Prüfung, Anmeldung, Abgleich zweier Geräte, Sperre |
 | `test_core.py` | 7 | Platzhalter, Scanner, Bestand-Datei |
 | `test_install_sh.py` | 9 | `install.sh` im Archiv- und Quellcode-Layout, fehlende Programmdatei, Deinstallation mit/ohne Installation, `pack_linux.sh` packen → entpacken → installieren |
@@ -316,7 +334,11 @@ temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des S
 
 **Nicht oder nur teilweise geprüft**
 
-- Gegen eine **echte Nextcloud** (getestet mit WsgiDAV + simulierter Erkennung).
+- Gegen eine **echte Nextcloud** (getestet mit WsgiDAV + simulierter Erkennung) – auch Login Flow v2
+  und OIDC/`user_oidc` nur gegen einen Stub-Server.
+- **Echte Security-Keys/Passkeys:** FIDO2 ist nur mit einem Fake-Authenticator getestet; geprüft ist,
+  dass python-fido2 die Optionen inkl. PRF-Erweiterung korrekt annimmt. Mit einem YubiKey o. ä. noch
+  auszuprobieren (Einrichten, Entsperren, PIN-Abfrage), ebenso Windows Hello.
 - **Echter Schlüsselbund** (KWallet) und echtes **Symbol im Infobereich** (Tests offscreen).
 - **Windows** insgesamt (Autostart über Registry, Anmeldeinformationsverwaltung, Pfade).
 - **Windows-Installer:** Inno-Setup-Build, Installation, Deinstallation und `--install` per PowerShell
@@ -337,7 +359,10 @@ temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des S
 - **Standardauswahl:** Browser-Profile und SSH-Keys sind vorausgewählt und werden damit zwischen allen
   Geräten desselben Betriebssystems abgeglichen. Browser-Profile können beschädigt werden, wenn der
   Browser auf zwei Geräten gleichzeitig läuft – Abwahl als Standard wäre zu überlegen.
-- **Verschlüsselung:** Inhalte liegen unverschlüsselt im Speicher (Transport ist verschlüsselt).
+- **Verschlüsselung** lässt sich einschalten, aber (noch) nicht wieder ausschalten. Alte, nicht mehr
+  benötigte Objekte bleiben wie bisher liegen.
+- **Plugins** werden nur per https geladen, aber nicht signiert – Vertrauen in die Quelle ist nötig.
+  Befehle werden vor dem Installieren angezeigt.
 - Die Verlaufsliste liest pro Version eine kleine Datei – bei sehr vielen Versionen über WebDAV/SFTP
   spürbar langsamer.
 - **Keine Code-Signatur:** Windows (SmartScreen) warnt beim ersten Start des Installers vor einem
@@ -406,3 +431,69 @@ chmod: cannot access './yaleno-wizard': No such file or directory
 - **Hinweis:** Ein vorhandener Autostart-Eintrag aus der Zeit vor dem Installer
   (`Exec=…/.venv/bin/python -m yaleno_wizard --background`, `Icon=folder-sync`) wird beim nächsten
   `--install` auf `~/.local/bin/yaleno-wizard` umgestellt.
+
+## 14. Plugins, Verschlüsselung und Anmeldung
+
+### Plugins (`plugins/`)
+
+- **Nur Daten, kein Code.** Ein Plugin ist eine YAML-Datei. `type: catalog` beschreibt Kategorien und
+  Einträge mit denselben Feldern wie `catalog/model.py` (Pfade je OS, Ausschlüsse, Befehle);
+  `type: feature` schaltet eingebaute Funktionen frei (`encryption`, `app_lock`, `fido2`,
+  `nextcloud_login_flow`, `oidc`). Damit bleibt das Ausführen fremden Python-Codes ausgeschlossen;
+  die einzige „aktive“ Fähigkeit sind Befehle, die vor dem Installieren hervorgehoben werden.
+- **Laden:** `registry.discover()` liest mitgelieferte (`plugins/builtin/`) und installierte
+  (`~/.config/yaleno-wizard/plugins/`) Dateien. Gleiche ID: die installierte gilt, außer die
+  mitgelieferte ist neuer. Aktiv ist, was in `yaleno.yml` unter `plugins.enabled` steht –
+  mitgelieferte Plugins sind standardmäßig aus.
+- **Einbau:** `catalog_for()` hängt aktive Catalog-Plugins an (`apply.py`). Ein Plugin mit Konflikt
+  (Kategorie-ID vergeben, unbekannter Eintrag bei `extend`) wird als Ganzes übersprungen und in
+  `catalog.plugin_errors` gemeldet. Plugin-Kategorien haben `claim_priority` 50, liegen also vor
+  „Weitere Anwendungs-Konfiguration“ (200).
+- **Updates:** `manager.check_updates()` lädt `source` (nur https, max. 256 KB), vergleicht `version`
+  und liefert `PluginChanges` (neue/entfallene Pfade, **neue Befehle**). Der Infobereich prüft höchstens
+  einmal täglich (`plugins/state.json`). Mitgelieferte, ungenutzte Plugins werden nicht geprüft.
+- **Verteilung:** `run_sync` legt aktive Catalog-Plugins unter `yaleno/plugins/` ab, wenn sie dort
+  fehlen oder älter sind. Nach dem Verbinden bietet der Wizard fehlende/neuere Plugins an; abgelehnte
+  Angebote werden je Version gemerkt. Kategorien merken sich in der Version ihr Plugin (`meta.plugin`).
+
+### Verschlüsselung (`core/crypto.py`, `core/store.py`, `core/encryption.py`)
+
+- Alles in `Store` gekapselt: `put_object`/`get_object`/`load_revision`/`list_revisions`/Plugins
+  ver- bzw. entschlüsseln transparent, `sync.py`, `restore.py` und die Oberfläche blieben unverändert.
+- **Format:** 1-MiB-Blöcke AES-256-GCM, Nonce = 8-Byte-Zufall + Blockzähler, AAD = Kontext
+  (`obj:<name>`, `rev:<n>`, `info:<n>`, `plugin:<name>`) + Zähler + Endblock-Kennung. Vertauschen,
+  Verschieben, Kürzen und Verlängern fallen auf. Objektnamen = HMAC-SHA256 der Klartext-Prüfsumme,
+  damit der Server bekannte Dateien nicht an ihrer Prüfsumme erkennt.
+- **Hochladen:** erst Prüfsumme berechnen (zweiter Lesedurchgang), dann nur fehlende Inhalte
+  verschlüsselt (über `SpooledTemporaryFile`) hochladen – Deduplizierung bleibt erhalten.
+- **Schlüsselplätze:** Hauptschlüssel umhüllt mit AES-GCM; Schlüssel aus scrypt (Passwort,
+  N = 2^17), HKDF (Wiederherstellungsschlüssel, 256 Bit, Base32) bzw. HKDF über das FIDO2-PRF-Ergebnis.
+  `check` (HKDF-Ableitung) erkennt den richtigen Hauptschlüssel. Mindestens ein Passwort oder
+  Wiederherstellungsschlüssel muss bleiben.
+- **Umstellung:** neue Ordner `eobjects/`, `erevisions/`, `eplugins/`; `store.json` wird erst am
+  Ende auf Version 2 gesetzt, danach werden die alten Ordner gelöscht (`Storage.remove_tree`). Die
+  Speicher-ID bleibt gleich, daher gelten die Abgleich-Zustände der Geräte weiter. Ältere
+  Programmversionen verweigern Version 2 mit „neuere Version“.
+- **Gemerkter Schlüssel** (`credentials.save_store_key`) für den Hintergrund-Abgleich; fehlt er,
+  bricht dieser mit einer verständlichen Meldung ab.
+
+### Security-Keys, Passkeys und App-Sperre (`security/`)
+
+- `Fido2Backend` kapselt die Hardware: `HardwareBackend` nutzt python-fido2 (Linux: HID-Geräte,
+  Windows: WebAuthn-API) und prüft Registrierung und Anmeldung mit `Fido2Server`. RP-ID ist fest
+  `yaleno.wizard`, damit ein Key auf allen Geräten funktioniert.
+- Speicher: Registrierung mit PRF, danach eine Anmeldung mit zufälligem Salz; das PRF-Ergebnis
+  umhüllt den Hauptschlüssel. Keys ohne PRF werden für den Speicher abgelehnt (für die App-Sperre
+  reichen sie).
+- App-Sperre: scrypt-Hash des Passworts bzw. gespeicherte Credentials in `yaleno.yml`; geprüft vor dem
+  Öffnen des Wizards, auch aus dem Infobereich. Bewusst nur Bedienschutz.
+
+### Anmeldung im Browser (`storage/auth.py`)
+
+- **Login Flow v2:** `POST /index.php/login/v2`, Browser öffnen, Endpoint abfragen, bis Nextcloud
+  Server, Login-Name und App-Passwort liefert. Danach wie eine normale App-Passwort-Verbindung.
+- **OIDC:** Discovery, Authorization Code + PKCE (S256), `state` und `nonce`, Loopback-Server auf
+  `127.0.0.1` mit zufälligem Port. `OIDCBearerAuth` (requests-`AuthBase`) erneuert das Access-Token
+  vor Ablauf und einmalig bei 401 und merkt rotierte Refresh-Tokens. `WebDAVStorage`/
+  `discover_dav_root` nehmen dafür optional eine eigene Auth an.
+

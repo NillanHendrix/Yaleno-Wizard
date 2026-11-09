@@ -41,8 +41,8 @@ def test_stream_roundtrip(size):
     out = io.BytesIO()
     assert keys.decrypt_stream(io.BytesIO(enc.getvalue()), out, b"ctx") == sha
     assert out.getvalue() == data
-    if size:
-        assert data[:min(size, 16)] not in enc.getvalue()
+    if size >= 16:  # kürzere Klartexte können zufällig im Chiffrat vorkommen
+        assert data[:16] not in enc.getvalue()
 
 
 def test_tampering_detected():

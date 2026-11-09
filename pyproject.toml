@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yaleno-wizard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Yaleno Wizard – persönliche Dateien, Konfiguration und Einstellungen über einen zentralen Speicher (SFTP, Nextcloud/WebDAV) zwischen Geräten abgleichen, mit Versionsverlauf"
 readme = "README.md"
 requires-python = ">=3.11"
