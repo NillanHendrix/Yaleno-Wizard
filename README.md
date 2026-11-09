@@ -1,6 +1,6 @@
 # 🧙 Yaleno Wizard
 
-<img src="src/yaleno_wizard/assets/yaleno.svg" width="15%"> <img src="banner.png" width="25%">
+<img src="src/yaleno_wizard/assets/yaleno.svg" width="15%">
 
 Hält **persönliche Dateien, Konfiguration und Einstellungen** auf allen deinen Geräten gleich. 💻🔄🖥️
 
