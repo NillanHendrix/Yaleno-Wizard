@@ -9,12 +9,14 @@ from pathlib import Path
 
 block_cipher = None
 ASSETS = Path("src/yaleno_wizard/assets")
+BUILTIN_PLUGINS = Path("src/yaleno_wizard/plugins/builtin")
 VERSION = re.search(r'__version__ = "([^"]+)"', Path("src/yaleno_wizard/__init__.py").read_text()).group(1)
 
 a = Analysis(
     ["src/yaleno_wizard/__main__.py"],
     pathex=["src"],
-    datas=[(str(f), "yaleno_wizard/assets") for f in ASSETS.iterdir() if f.suffix in (".png", ".svg", ".ico")],
+    datas=[(str(f), "yaleno_wizard/assets") for f in ASSETS.iterdir() if f.suffix in (".png", ".svg", ".ico")]
+    + [(str(f), "yaleno_wizard/plugins/builtin") for f in BUILTIN_PLUGINS.glob("*.yml")],
     hiddenimports=["yaleno_wizard.catalog.linux", "yaleno_wizard.catalog.windows",
                    "keyring.backends.SecretService", "keyring.backends.kwallet", "keyring.backends.Windows"],
     excludes=[

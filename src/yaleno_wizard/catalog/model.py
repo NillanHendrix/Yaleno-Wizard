@@ -81,6 +81,8 @@ class Category:
 class Catalog:
     os: OSName
     categories: list[Category] = field(default_factory=list)
+    plugins: list[str] = field(default_factory=list)        # IDs der eingebauten Plugins
+    plugin_errors: list[str] = field(default_factory=list)  # übersprungene Plugins mit Grund
 
     def get(self, cat_id: str) -> Category | None:
         for c in self.categories:

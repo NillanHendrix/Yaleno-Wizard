@@ -31,6 +31,9 @@ wählen. Die Datei kann von Hand bearbeitet und auf andere Geräte kopiert werde
       enabled: true
       interval_minutes: 15
       autostart: true
+    plugins:
+      enabled: [prismlauncher]     # aktive Plugins (siehe Plugin-Manager)
+      check_updates: true          # Hintergrund-Abgleich sucht täglich nach Updates
 """
 
 from __future__ import annotations
@@ -109,6 +112,8 @@ class Profile:
     bg_enabled: bool = False
     bg_interval: int = 15
     bg_autostart: bool = False
+    plugins_enabled: list[str] = field(default_factory=list)
+    plugins_check_updates: bool = True
 
     # ------------------------------------------------------------------ YAML
     def to_yaml_dict(self, include_secrets: bool = True) -> dict:
@@ -138,6 +143,10 @@ class Profile:
                 "interval_minutes": self.bg_interval,
                 "autostart": self.bg_autostart,
             },
+            "plugins": {
+                "enabled": self.plugins_enabled,
+                "check_updates": self.plugins_check_updates,
+            },
         }
 
     @classmethod
@@ -151,7 +160,7 @@ class Profile:
                 raise ConfigError(f"„{key}“ muss ein Abschnitt sein.")
             return v
 
-        st, sync, bg = sec(d, "storage"), sec(d, "sync"), sec(d, "background")
+        st, sync, bg, pl = sec(d, "storage"), sec(d, "sync"), sec(d, "background"), sec(d, "plugins")
         wd, sf, lo = sec(st, "webdav"), sec(st, "sftp"), sec(st, "local")
         typ = str(st.get("type", "sftp")).lower()
         if typ == "nextcloud":
@@ -171,6 +180,9 @@ class Profile:
             raise ConfigError("sync.categories muss eine Liste sein.")
         if not isinstance(excl, dict):
             raise ConfigError("sync.exclude muss ein Abschnitt je Kategorie sein.")
+        enabled = pl.get("enabled") or []
+        if not isinstance(enabled, list):
+            raise ConfigError("plugins.enabled muss eine Liste sein.")
         try:
             port = int(sf.get("port") or 22)
             interval = int(bg.get("interval_minutes") or 15)
@@ -192,6 +204,8 @@ class Profile:
             bg_enabled=bool(bg.get("enabled", False)),
             bg_interval=max(1, interval),
             bg_autostart=bool(bg.get("autostart", False)),
+            plugins_enabled=[str(x) for x in enabled],
+            plugins_check_updates=bool(pl.get("check_updates", True)),
         )
 
     def to_yaml(self, include_secrets: bool = True) -> str:
