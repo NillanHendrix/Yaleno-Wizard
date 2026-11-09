@@ -26,5 +26,8 @@ yaleno-wizard = "yaleno_wizard.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+yaleno_wizard = ["assets/*.png", "assets/*.svg", "assets/*.ico"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

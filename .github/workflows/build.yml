@@ -5,6 +5,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: write  # Installer an das Release hängen (nur bei Tags)
+
 jobs:
   build:
     strategy:
@@ -24,7 +27,40 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
       - run: pyinstaller --noconfirm --clean yaleno_wizard.spec
+
+      - name: Version ermitteln
+        shell: bash
+        run: echo "VERSION=$(python -c 'import yaleno_wizard; print(yaleno_wizard.__version__)')" >> "$GITHUB_ENV"
+
+      # ---------------------------------------------------------------- Windows: Installer
+      - name: Inno Setup installieren
+        if: runner.os == 'Windows'
+        run: choco install innosetup -y --no-progress
+      - name: Installer bauen
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" packaging\windows\yaleno-wizard.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # ---------------------------------------------------------------- Linux: Archiv mit install.sh
+      - name: Linux-Archiv packen
+        if: runner.os == 'Linux'
+        run: sh scripts/pack_linux.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: yaleno-wizard-${{ runner.os }}
-          path: dist/*
+          path: |
+            dist/yaleno-wizard-setup-*.exe
+            dist/yaleno-wizard.exe
+            dist/yaleno-wizard-*-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+      - name: An Release anhängen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/yaleno-wizard-setup-*.exe
+            dist/yaleno-wizard-*-linux-x86_64.tar.gz

@@ -214,3 +214,60 @@ def test_autostart_desktop_file(tmp_path):
     autostart.set_enabled(False)
     assert not f.exists()
     settings.set_config_file(None)
+
+
+# ---------------------------------------------------------------------- Logo / Installation
+def test_icons_present_and_valid():
+    import struct
+    from yaleno_wizard import assets
+    for s in assets.PNG_SIZES:
+        assert assets.png(s).read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    data = assets.ico().read_bytes()
+    reserved, typ, count = struct.unpack("<HHH", data[:6])
+    assert (reserved, typ, count) == (0, 1, 7)
+    assert assets.svg().read_text().lstrip().startswith("<?xml")
+
+
+def test_install_and_uninstall_linux(tmp_path, monkeypatch):
+    from yaleno_wizard import install
+    monkeypatch.setenv("HOME", str(tmp_path / "h"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "h" / ".local" / "share"))
+    fake_exe = tmp_path / "download" / "yaleno-wizard"
+    fake_exe.parent.mkdir()
+    fake_exe.write_bytes(b"#!/bin/sh\n")
+    autostart.set_enabled(True)  # zeigt bisher auf den Download-Ort
+
+    done = install.install_linux(fake_exe, refresh=False)
+    target = tmp_path / "h" / ".local" / "bin" / "yaleno-wizard"
+    assert target.read_bytes() == b"#!/bin/sh\n" and os.access(target, os.X_OK)
+    desktop = (tmp_path / "h" / ".local" / "share" / "applications" / "yaleno-wizard.desktop").read_text()
+    assert f"Exec={target}\n" in desktop and "Icon=yaleno-wizard\n" in desktop
+    assert "Name=Yaleno Wizard" in desktop and f"Exec={target} --background" in desktop
+    icons = tmp_path / "h" / ".local" / "share" / "icons" / "hicolor"
+    assert (icons / "256x256" / "apps" / "yaleno-wizard.png").exists()
+    assert (icons / "scalable" / "apps" / "yaleno-wizard.svg").exists()
+    auto = (tmp_path / "cfg" / "autostart" / "yaleno-wizard.desktop").read_text()
+    assert f"Exec={target} --background" in auto and "Icon=yaleno-wizard" in auto
+    assert any("Autostart" in d for d in done)
+
+    # aus dem Quellcode: kein Kopieren, Python-Modul als Befehl
+    install.install_linux(None, refresh=False)
+    assert "-m yaleno_wizard" in (tmp_path / "h" / ".local" / "share" / "applications" / "yaleno-wizard.desktop").read_text()
+
+    install.uninstall_linux(refresh=False)
+    assert not target.exists() and not (icons / "256x256" / "apps" / "yaleno-wizard.png").exists()
+    assert not (tmp_path / "h" / ".local" / "share" / "applications" / "yaleno-wizard.desktop").exists()
+    assert not autostart.is_enabled()
+
+
+def test_desktop_entry_is_valid():
+    import shutil
+    import subprocess
+    from yaleno_wizard import install
+    if not shutil.which("desktop-file-validate"):
+        pytest.skip("desktop-file-validate nicht installiert")
+    f = Path(os.environ.get("XDG_CONFIG_HOME", "/tmp")) / "test.desktop"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(install.desktop_entry(["/usr/bin/yaleno-wizard"]))
+    r = subprocess.run(["desktop-file-validate", str(f)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr

@@ -12,17 +12,28 @@ from . import APP_ID, APP_NAME, settings
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
-def background_command() -> list[str]:
-    """Befehl, der den Hintergrund-Abgleich (Symbol im Infobereich) startet."""
+def app_command(executable: str | None = None) -> list[str]:
+    """Befehl, der den Yaleno Wizard startet (installierte Binärdatei oder Python-Modul)."""
+    if executable:
+        return [executable]
     if getattr(sys, "frozen", False):  # PyInstaller-Binärdatei
-        cmd = [sys.executable]
-    else:
-        exe = sys.executable
-        if sys.platform.startswith("win"):
-            pyw = Path(exe).with_name("pythonw.exe")  # ohne Konsolenfenster
-            if pyw.exists():
-                exe = str(pyw)
-        cmd = [exe, "-m", "yaleno_wizard"]
+        return [sys.executable]
+    exe = sys.executable
+    if sys.platform.startswith("win"):
+        pyw = Path(exe).with_name("pythonw.exe")  # ohne Konsolenfenster
+        if pyw.exists():
+            exe = str(pyw)
+    return [exe, "-m", "yaleno_wizard"]
+
+
+def quote_exec(args: list[str]) -> str:
+    """Exec-Zeile für .desktop-Dateien."""
+    return " ".join(_quote(a) for a in args)
+
+
+def background_command(executable: str | None = None) -> list[str]:
+    """Befehl, der den Hintergrund-Abgleich (Symbol im Infobereich) startet."""
+    cmd = app_command(executable)
     cmd.append("--background")
     if settings._config_override is not None:
         cmd += ["--config", str(settings._config_override)]
@@ -52,12 +63,13 @@ def is_enabled() -> bool:
     return _desktop_file().exists()
 
 
-def set_enabled(enabled: bool) -> None:
+def set_enabled(enabled: bool, executable: str | None = None) -> None:
     if sys.platform.startswith("win"):  # pragma: no cover - nur Windows
         import winreg
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
             if enabled:
-                winreg.SetValueEx(k, APP_ID, 0, winreg.REG_SZ, subprocess.list2cmdline(background_command()))
+                winreg.SetValueEx(k, APP_ID, 0, winreg.REG_SZ,
+                                  subprocess.list2cmdline(background_command(executable)))
             else:
                 try:
                     winreg.DeleteValue(k, APP_ID)
@@ -74,8 +86,8 @@ def set_enabled(enabled: bool) -> None:
         "Type=Application\n"
         f"Name={APP_NAME} (Hintergrund-Abgleich)\n"
         "Comment=Gleicht dieses Gerät regelmäßig mit dem zentralen Speicher ab\n"
-        f"Exec={' '.join(_quote(a) for a in background_command())}\n"
-        "Icon=folder-sync\n"
+        f"Exec={quote_exec(background_command(executable))}\n"
+        f"Icon={APP_ID}\n"
         "Terminal=false\n"
         "X-GNOME-Autostart-enabled=true\n"
         "X-KDE-autostart-after=panel\n",

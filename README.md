@@ -1,5 +1,7 @@
 # 🧙 Yaleno Wizard
 
+<img src="src/yaleno_wizard/assets/yaleno.svg" width="15%"> <img src="banner.png" width="25%">
+
 Hält **persönliche Dateien, Konfiguration und Einstellungen** auf allen deinen Geräten gleich. 💻🔄🖥️
 
 Der **Speicher** ist die zentrale Ablage: Dort liegt immer der aktuelle Stand deiner Daten,
@@ -37,11 +39,70 @@ unabhängig von einem Gerät. Jedes Gerät gleicht sich mit ihm ab. Frühere St�
 
 ### 1️⃣ Installieren
 
-**Fertige Programmdatei:** Unter *Actions → build* auf GitHub gibt es für Linux und Windows je eine
-Datei `yaleno-wizard` bzw. `yaleno-wizard.exe` zum Herunterladen. Einfach starten – keine
-Installation nötig. 📦
+Beide Wege richten einen **Eintrag mit Logo im Startmenü** ein. 🧙 Den Windows-Installer gibt es
+auf GitHub unter **Releases** bzw. *Actions → build* (Artefakte); unter Linux baust und installierst
+du direkt aus dem Quellcode mit `packaging/linux/install.sh`.
 
-**Aus dem Quellcode** (Python ≥ 3.11):
+<details open>
+<summary>🪟 <b>Windows</b></summary>
+
+1. `yaleno-wizard-setup-<version>.exe` herunterladen und starten.
+2. Installation **für dich allein** (ohne Admin-Rechte) oder für alle Benutzer wählen,
+   optional ein Desktop-Symbol anlegen. ✅
+3. Im Startmenü erscheinen **Yaleno Wizard**, **Yaleno Wizard – Hintergrund-Abgleich** und
+   **Deinstallieren**.
+
+Deinstallieren über *Einstellungen → Apps* oder den Startmenü-Eintrag. Einstellungen und
+gespeicherte Passwörter bleiben dabei erhalten.
+
+</details>
+
+<details open>
+<summary>🐧 <b>Linux</b></summary>
+
+Voraussetzung: Python ≥ 3.11 und git.
+
+```bash
+git clone https://github.com/NillanHendrix/Yaleno-Wizard.git
+cd Yaleno-Wizard
+python -m venv .venv
+.venv/bin/pip install -e ".[dev]"                      # bringt PyInstaller mit
+.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec   # baut dist/yaleno-wizard
+sh packaging/linux/install.sh                          # Programm nach ~/.local/bin, Startmenü + Logo
+```
+
+Danach findest du **Yaleno Wizard** im Anwendungsmenü (KDE, GNOME, XFCE …). Rechtsklick auf den
+Eintrag bietet zusätzlich **„Hintergrund-Abgleich starten“**. Keine Root-Rechte nötig. 🙌
+Das installierte Programm ist eigenständig – der Quellcode-Ordner kann danach weg.
+
+`packaging/linux/install.sh` legt an (alles nur für dich):
+
+| Was | Wo |
+|---|---|
+| 📦 Programm | `~/.local/bin/yaleno-wizard` |
+| 🧭 Startmenü-Eintrag | `~/.local/share/applications/yaleno-wizard.desktop` |
+| 🧙 Logo (16–512 px + SVG) | `~/.local/share/icons/hicolor/*/apps/yaleno-wizard.*` |
+| 🌙 Autostart (nur falls eingeschaltet) | `~/.config/autostart/yaleno-wizard.desktop` – wird auf das installierte Programm umgestellt |
+
+**Aktualisieren:** Einstellungen bleiben erhalten.
+
+```bash
+git pull
+.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec
+sh packaging/linux/install.sh
+```
+
+**Entfernen:** `sh packaging/linux/install.sh --uninstall` (oder `yaleno-wizard --uninstall`). Ist
+nichts installiert, meldet das Skript „nichts zu entfernen“. Einstellungen und gespeicherte
+Passwörter bleiben erhalten.
+
+Das Skript nimmt die Programmdatei aus `dist/`. Fehlt sie (Bauen vergessen), sagt es, wo gesucht
+wurde und was zu tun ist (siehe [Häufige Fragen](#faq)).
+
+</details>
+
+<details>
+<summary>🐍 <b>Ohne Bauen direkt aus dem Quellcode starten</b> (Python ≥ 3.11, auch Windows)</summary>
 
 ```bash
 git clone https://github.com/NillanHendrix/Yaleno-Wizard.git
@@ -50,6 +111,12 @@ python -m venv .venv
 .venv/bin/pip install -e .                 # Windows: .venv\Scripts\pip install -e .
 .venv/bin/python -m yaleno_wizard          # Wizard starten
 ```
+
+Für einen dauerhaften Startmenü-Eintrag unter Linux besser den Weg oben mit
+`packaging/linux/install.sh` nehmen. `python -m yaleno_wizard --install` geht auch, der Eintrag
+startet dann aber das Python-Modul aus der `.venv` und funktioniert nur, solange der Ordner existiert.
+
+</details>
 
 <a id="speicher-vorbereiten"></a>
 
@@ -220,6 +287,32 @@ auf allen Geräten mit gleichem Betriebssystem; nur mit einem vertrauenswürdige
 </details>
 
 <details>
+<summary>🐧 <code>install.sh</code>: „Programmdatei 'yaleno-wizard' nicht gefunden“ / „No such file or directory“</summary>
+
+`packaging/linux/install.sh` installiert die gebaute Programmdatei `dist/yaleno-wizard`. Die
+entsteht erst durch PyInstaller – also zuerst bauen, dann installieren:
+
+```bash
+.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec
+sh packaging/linux/install.sh
+```
+
+Ältere Versionen des Skripts suchten nur im eigenen Ordner und brachen deshalb immer mit
+`chmod: cannot access './yaleno-wizard': No such file or directory` ab – dann `git pull`.
+Ohne Bauen geht notfalls `.venv/bin/python -m yaleno_wizard --install` (Eintrag hängt an der `.venv`).
+
+</details>
+
+<details>
+<summary>🧭 Der Eintrag erscheint nicht im Startmenü</summary>
+
+Prüfen, ob `~/.local/share/applications/yaleno-wizard.desktop` existiert. Manche Desktops lesen
+das Menü erst nach Ab- und Anmelden neu ein. Liegt `~/.local/bin` nicht im `PATH`, funktioniert das
+Startmenü trotzdem – nur im Terminal muss `~/.local/bin/yaleno-wizard` ausgeschrieben werden.
+
+</details>
+
+<details>
 <summary>📜 Wo finde ich Protokolle?</summary>
 
 `~/.local/state/yaleno-wizard/log` bzw. `%LOCALAPPDATA%\yaleno-wizard\Logs` – ein Log je Vorgang
@@ -360,6 +453,8 @@ yaleno-wizard --background        # Symbol im Infobereich (das trägt auch der A
 yaleno-wizard --sync              # einmal abgleichen ohne Oberfläche, z. B. per cron/systemd-Timer
                                   # Exit-Code: 0 ok, 1 einzelne Dateien fehlgeschlagen, 2 Fehler
 yaleno-wizard --config datei.yml  # andere Einstellungsdatei verwenden
+yaleno-wizard --install           # 🧙 ins Startmenü eintragen (mit Logo)
+yaleno-wizard --uninstall         # Eintrag und Programm entfernen
 ```
 
 Es gelten die zuletzt im Wizard gewählten Kategorien und abgewählten Dateien
@@ -390,15 +485,27 @@ Import: „Bestand importieren …“ setzt die Auswahl; nicht gefundene Einträ
 ## 🛠️ Entwicklung
 
 Aufbau, Funktionsweise des Abgleichs, Entscheidungen und offene Punkte:
-📚 [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md)
+📚 [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md)  ·  📝 Änderungen: [CHANGELOG.md](CHANGELOG.md)
 
 ```bash
 python -m venv .venv
 .venv/bin/pip install -e ".[dev]"          # Windows: .venv\Scripts\pip ...
 .venv/bin/python -m yaleno_wizard          # starten
 .venv/bin/pytest -q                        # 🧪 Tests (inkl. echtem SFTP- und WebDAV-Testserver, GUI offscreen)
-.venv/bin/pyinstaller yaleno_wizard.spec   # 📦 → dist/yaleno-wizard(.exe)
+.venv/bin/pyinstaller yaleno_wizard.spec   # 📦 → dist/yaleno-wizard(.exe), mit Logo
+.venv/bin/python scripts/make_icons.py     # 🎨 PNG/ICO neu erzeugen, nach Änderung an assets/yaleno.svg
 ```
 
+**Installer bauen:**
+
+- 🪟 Windows: nach PyInstaller `iscc /DAppVersion=0.1.0 packaging\windows\yaleno-wizard.iss`
+  ([Inno Setup 6](https://jrsoftware.org/isinfo.php)) → `dist\yaleno-wizard-setup-0.1.0.exe`
+- 🐧 Linux: nach PyInstaller `scripts/pack_linux.sh` → `dist/yaleno-wizard-0.1.0-linux-x86_64.tar.gz`
+  (Ordner `yaleno-wizard-0.1.0/` mit `yaleno-wizard` + `install.sh`; der Workflow nutzt dasselbe
+  Skript). Zum Testen geht auch direkt `sh packaging/linux/install.sh` – es nimmt dann
+  `dist/yaleno-wizard`. Gefahrlos ausprobieren mit einem leeren Home-Ordner:
+  `HOME=$(mktemp -d) sh packaging/linux/install.sh`
+
 Die Binärdatei muss auf dem jeweiligen Betriebssystem gebaut werden. Der Workflow
-`.github/workflows/build.yml` baut Linux und Windows automatisch (bei Tags `v*` oder manuell). 🤖
+`.github/workflows/build.yml` macht alles automatisch: bei manuellem Start als Artefakte, bei einem
+Tag `v*` (z. B. `git tag v0.1.0 && git push --tags`) zusätzlich als **Release** mit Installern. 🤖

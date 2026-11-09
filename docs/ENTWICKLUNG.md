@@ -18,6 +18,7 @@ offen ist. Bedienung und Dateiformate für Benutzer stehen im [README](../README
 10. [Tests](#10-tests)
 11. [Bewusste Entscheidungen](#11-bewusste-entscheidungen)
 12. [Bekannte Grenzen und offene Punkte](#12-bekannte-grenzen-und-offene-punkte)
+13. [Logo und Installer](#13-logo-und-installer)
 
 ---
 
@@ -47,8 +48,12 @@ verfügbar“:
 | 3 | „WebDAV-Support für Nextcloud“ | Neuer Speichertyp **WebDAV** mit Nextcloud-Erkennung. |
 | 4 | „App-Passwort dauerhaft speichern, Synchronisation im Hintergrund, Authentifizierung in einer .yml-Datei“ | **Schlüsselbund**-Anbindung, **YAML-Einstellungsdatei**, **Hintergrund-Abgleich** (Infobereich, Autostart, `--sync`). |
 | 5 | Commit, Merge, Push | Ein Commit `ab56463` auf Branch `zentraler-speicher-sync`, per Fast-Forward nach `main`, nach GitHub gepusht. |
+| 6 | Dokumentation | `docs/ENTWICKLUNG.md`, README mit Anleitung und Emojis (`d3a0170`). |
+| 7 | „Installer mit Logo und Starter im Startmenü“ | Logo (SVG → PNG/ICO), Windows-Installer (Inno Setup), Linux-Startmenü-Eintrag (`--install`), Release-Workflow. Siehe [Abschnitt 13](#13-logo-und-installer). |
+| 8 | „Der Installer unter Linux geht immer noch nicht: *file not found*“ | Ursache: `install.sh` fand die Programmdatei nur im Release-Archiv. **Behoben:** `install.sh` sucht auch in `dist/`, verständliche Fehlermeldung, `--uninstall` ohne Installation; neues `scripts/pack_linux.sh` (auch im Workflow), 9 Tests. Siehe [Abschnitt 13](#13-logo-und-installer). |
 
-Umfang der Änderung: 41 Dateien, +4479 / −815 Zeilen; 61 automatische Tests.
+Umfang des Umbaus (Schritte 2–4, Commit `ab56463`): 41 Dateien, +4479 / −815 Zeilen.
+Aktueller Stand: 74 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
 
 ## 3. Architektur
 
@@ -58,6 +63,8 @@ src/yaleno_wizard/
 ├── settings.py            YAML-Einstellungsdatei (Profile), Pfade
 ├── credentials.py         Passwörter: Schlüsselbund oder Datei
 ├── autostart.py           Autostart (Linux .desktop / Windows Run-Schlüssel)
+├── install.py             NEU  Startmenü-Eintrag mit Logo (--install / --uninstall)
+├── assets/                NEU  Logo: yaleno.svg (Vorlage), PNG 16–512 px, yaleno.ico
 ├── catalog/               Kategorien und Pfad-Platzhalter (unverändert)
 ├── core/
 │   ├── store.py           NEU  zentraler Speicher: Objekte, Versionen, HEAD, Sperre
@@ -78,6 +85,14 @@ src/yaleno_wizard/
     ├── tray.py            NEU  Hintergrund-Abgleich im Infobereich
     ├── background_dialog.py NEU Einstellungen Hintergrund-Abgleich
     └── übrige Seiten      angepasst
+
+packaging/
+├── windows/yaleno-wizard.iss   NEU  Inno-Setup-Skript (Windows-Installer)
+└── linux/install.sh            NEU  Installationsskript im Linux-Archiv
+scripts/make_icons.py           NEU  erzeugt PNG/ICO aus dem SVG-Logo
+scripts/pack_linux.sh           NEU  packt das Linux-Archiv (lokal und im Workflow)
+yaleno_wizard.spec              PyInstaller: Logo, Assets, Windows-Versionsinfo
+.github/workflows/build.yml     Tests → Binärdatei → Installer/Archiv → Release (bei Tags)
 ```
 
 Grundsatz: **Kernlogik (`core/`, `storage/`) kennt kein Qt.** Wizard, Infobereich und
@@ -265,16 +280,17 @@ Dateien: `core/background.py`, `gui/tray.py`, `autostart.py`, `__main__.py`
 
 ## 10. Tests
 
-61 Tests, laufen in ca. 4 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
+74 Tests, laufen in ca. 6 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
 
 | Datei | Tests | Inhalt |
 |---|---|---|
 | `test_sync.py` | 19 | Zwei simulierte Geräte an einem Speicher: Erstabgleich, neues Gerät, Änderungen/Löschungen, Konflikte (alle 3 Regeln), Abwahl, Linux ↔ Windows, Verlauf + Zurücksetzen + wieder Vorspringen, Ablageordner, Pfad-Ausbruch, beschädigte Objekte, Sperre, Änderung zwischen Planen und Ausführen, Probelauf, Abbruch |
-| `test_settings_background.py` | 17 | YAML hin und zurück, Rechte 0600, handgeschriebene Datei, Fehlermeldungen, Übernahme `profile.json`, Schlüsselbund + Rückfall, Hintergrund-Abgleich mit Abwahl, Bremse bei Massenlöschung, fehlender Grundordner, `--sync` mit `--config`, Autostart |
+| `test_settings_background.py` | 20 | YAML hin und zurück, Rechte 0600, handgeschriebene Datei, Fehlermeldungen, Übernahme `profile.json`, Schlüsselbund + Rückfall, Hintergrund-Abgleich mit Abwahl, Bremse bei Massenlöschung, fehlender Grundordner, `--sync` mit `--config`, Autostart; Logo-Dateien (PNG/ICO gültig), `--install`/`--uninstall` unter Linux inkl. Autostart-Umstellung, `.desktop` mit `desktop-file-validate` |
 | `test_webdav.py` | 7 | Gegen echten WebDAV-Server (WsgiDAV): Grundfunktionen inkl. Umlaute/Leerzeichen, großer Upload, Abbruch, exklusives Anlegen + Sperre, Abgleich zweier Geräte; Nextcloud-Erkennung (simuliert) |
-| `test_gui.py` | 7 | Wizard offscreen: Abgleichen, erneut abgleichen, Datei aus Version holen, Speicher zurücksetzen; Verbindung über WebDAV inkl. falschem Passwort und Vorausfüllen aus dem Schlüsselbund; Abwahl-Muster; Infobereich; Hintergrund-Dialog |
+| `test_gui.py` | 8 | Wizard offscreen: Abgleichen, erneut abgleichen, Datei aus Version holen, Speicher zurücksetzen; Verbindung über WebDAV inkl. falschem Passwort und Vorausfüllen aus dem Schlüsselbund; Abwahl-Muster; Infobereich; Hintergrund-Dialog; App-Symbol in allen Größen |
 | `test_sftp.py` | 4 | Gegen echten SFTP-Testserver: Host-Key-Prüfung, Anmeldung, Abgleich zweier Geräte, Sperre |
 | `test_core.py` | 7 | Platzhalter, Scanner, Bestand-Datei |
+| `test_install_sh.py` | 9 | `install.sh` im Archiv- und Quellcode-Layout, fehlende Programmdatei, Deinstallation mit/ohne Installation, `pack_linux.sh` packen → entpacken → installieren |
 
 Alle Tests laufen isoliert: Einstellungen, Logs und **Schlüsselbund** werden pro Test durch
 temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des Systems wird nie berührt.
@@ -292,6 +308,9 @@ temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des S
 | `requests` statt WebDAV-Bibliothek | wenige, verbreitete Abhängigkeiten; volle Kontrolle über Nextcloud-Eigenheiten | eigener PROPFIND-Code |
 | Schlüsselbund als Standard | Passwort nicht im Klartext | unter Linux muss der Schlüsselbund entsperrt sein |
 | Bremse bei Massenlöschung nur im Hintergrund | im Wizard sieht man die Vorschau | große Aufräumaktionen einmal im Wizard bestätigen |
+| Logo als SVG, PNG/ICO per Skript erzeugt und eingecheckt | eine Vorlage, keine Bildbearbeitungs-Abhängigkeit im Build | nach Logo-Änderung Skript ausführen |
+| Inno Setup für Windows | Standardwerkzeug, Startmenü/Deinstallation/Updates ohne eigenen Code, Installation ohne Admin-Rechte | Build nur unter Windows |
+| Linux: `--install` im Programm statt Paket (deb/rpm/Flatpak) | ein Archiv für alle Distributionen, kein Root nötig | keine Updates über den Paketmanager |
 
 ## 12. Bekannte Grenzen und offene Punkte
 
@@ -300,7 +319,12 @@ temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des S
 - Gegen eine **echte Nextcloud** (getestet mit WsgiDAV + simulierter Erkennung).
 - **Echter Schlüsselbund** (KWallet) und echtes **Symbol im Infobereich** (Tests offscreen).
 - **Windows** insgesamt (Autostart über Registry, Anmeldeinformationsverwaltung, Pfade).
-- PyInstaller-Build mit den neuen Abhängigkeiten.
+- **Windows-Installer:** Inno-Setup-Build, Installation, Deinstallation und `--install` per PowerShell
+  (geschrieben, aber nur unter Linux entwickelt).
+- **Release-Workflow** auf GitHub (läuft erst nach Push eines Tags).
+- Geprüft ist dagegen der PyInstaller-Build unter Linux samt `--install` aus der Binärdatei.
+- Geprüft ist auch `install.sh` mit der echten Binärdatei: direkt aus dem Quellcode und aus dem mit
+  `scripts/pack_linux.sh` gepackten Archiv, jeweils in einem leeren `HOME`, inkl. `--uninstall`.
 
 **Funktional offen**
 
@@ -316,3 +340,69 @@ temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des S
 - **Verschlüsselung:** Inhalte liegen unverschlüsselt im Speicher (Transport ist verschlüsselt).
 - Die Verlaufsliste liest pro Version eine kleine Datei – bei sehr vielen Versionen über WebDAV/SFTP
   spürbar langsamer.
+- **Keine Code-Signatur:** Windows (SmartScreen) warnt beim ersten Start des Installers vor einem
+  unbekannten Herausgeber („Weitere Informationen → Trotzdem ausführen“).
+- **Linux nur x86_64** und ohne automatische Updates; ein AppImage oder Flatpak wäre eine Alternative.
+- Noch kein Versions-Tag gesetzt – das erste Release entsteht mit `git tag v0.1.0 && git push --tags`.
+
+## 13. Logo und Installer
+
+**Logo:** `src/yaleno_wizard/assets/yaleno.svg` (Zauberhut in zwei Abgleich-Pfeilen, violetter
+Hintergrund). `scripts/make_icons.py` rendert daraus mit Qt die PNGs (16–512 px) und baut die
+Windows-`yaleno.ico` selbst (PNG-Einträge, 16–256 px) – ohne zusätzliche Abhängigkeit. Die
+Ergebnisse liegen im Repository. Verwendet für Fenster/Taskleiste (`app.setWindowIcon`), Infobereich,
+`.exe`-Symbol, Installer und Startmenü.
+
+**Windows** (`packaging/windows/yaleno-wizard.iss`, Inno Setup 6):
+
+- Installation ohne Admin-Rechte für den Benutzer, auf Wunsch für alle (`PrivilegesRequiredOverridesAllowed`).
+- Startmenü: Wizard, Hintergrund-Abgleich, Deinstallieren; optional Desktop-Symbol.
+- Feste `AppId` – Updates ersetzen die alte Version.
+- Deinstallation beendet einen laufenden Hintergrund-Abgleich und entfernt den Autostart-Eintrag;
+  Einstellungen und Passwörter bleiben.
+- Die `.exe` erhält Versionsinformationen (Eigenschaften → Details).
+
+**Linux** (`yaleno_wizard/install.py`, `yaleno-wizard --install`): nach freedesktop-Standard für den
+Benutzer – Programm nach `~/.local/bin`, `.desktop`-Datei nach `~/.local/share/applications`, Symbole ins
+`hicolor`-Thema; danach werden die Menü-Caches erneuert (KDE/GNOME). Ein bestehender Autostart wird auf
+das installierte Programm umgestellt. `StartupWMClass` und `setDesktopFileName` sorgen dafür, dass das
+Fenster in der Taskleiste das Logo zeigt. Für die einzelne Windows-`.exe` legt `--install` eine
+Startmenü-Verknüpfung per PowerShell an.
+
+**CI** (`.github/workflows/build.yml`): Tests → PyInstaller → Windows: Inno Setup per Chocolatey,
+`ISCC`; Linux: `tar.gz` mit `install.sh`. Bei Tags `v*` werden die Installer an ein GitHub-Release
+gehängt.
+
+**Geprüft:** Linux-Binärdatei lokal gebaut, `--install` daraus in ein Test-Home ausgeführt,
+`.desktop`-Datei mit `desktop-file-validate` geprüft, ICO mit ImageMagick gelesen.
+**Nicht geprüft:** Inno-Setup-Build und Installer unter Windows, PowerShell-Verknüpfung,
+Release-Workflow (läuft erst auf GitHub).
+
+### Fehler „file not found“ beim Linux-Installer (behoben)
+
+Nachgestellt mit `sh packaging/linux/install.sh` im Projektordner:
+
+```text
+chmod: cannot access './yaleno-wizard': No such file or directory
+```
+
+- **Ursache:** `install.sh` wechselte in den eigenen Ordner und erwartete dort die Programmdatei.
+  Das stimmt nur im Release-Archiv (`yaleno-wizard` + `install.sh` nebeneinander), das nur der
+  Workflow packte. Im Quellcode liegt das Skript in `packaging/linux/`, die Programmdatei in `dist/`.
+  `./install.sh --uninstall` scheiterte genauso, wenn `~/.local/bin/yaleno-wizard` fehlte.
+  `yaleno-wizard --install` selbst war nie betroffen.
+- **Behebung in `packaging/linux/install.sh`:**
+  - sucht die Programmdatei neben sich (Archiv), dann in `../../dist/` (Quellcode);
+  - fehlt sie, klare Meldung mit den gesuchten Pfaden und den Auswegen (`pyinstaller …`,
+    Release-Archiv, `python -m yaleno_wizard --install`), Exit-Code 1;
+  - `--uninstall` nimmt das installierte Programm, sonst die gefundene Programmdatei (räumt auch
+    Reste wie Startmenü-Eintrag und Autostart weg), sonst „nichts zu entfernen“ mit Exit-Code 0;
+  - unbekannte Optionen → Exit-Code 2; `set -eu`, funktioniert auch bei Aufruf von außerhalb des Ordners.
+- **Neu `scripts/pack_linux.sh`:** packt `dist/yaleno-wizard-<version>-linux-x86_64.tar.gz` lokal
+  genau so wie der Workflow; der Workflow ruft jetzt dieses Skript auf (eine Quelle statt zwei).
+- **Tests `tests/test_install_sh.py` (9):** Archiv-Layout, Quellcode-Layout, fehlende Programmdatei,
+  unbekannte Option, Deinstallation (installiert / nicht installiert / aus dem Archiv), Packen +
+  Entpacken + Installieren, Packen ohne Build. Eine Platzhalter-Programmdatei protokolliert den Aufruf.
+- **Hinweis:** Ein vorhandener Autostart-Eintrag aus der Zeit vor dem Installer
+  (`Exec=…/.venv/bin/python -m yaleno_wizard --background`, `Icon=folder-sync`) wird beim nächsten
+  `--install` auf `~/.local/bin/yaleno-wizard` umgestellt.

@@ -304,3 +304,11 @@ def test_background_dialog(app, tmp_path):
     dlg.enabled.setChecked(False)
     dlg.apply()
     assert not autostart.is_enabled()
+
+
+def test_app_icon_has_all_sizes(app):
+    from yaleno_wizard.assets import app_icon
+    icon = app_icon()
+    assert not icon.isNull()
+    sizes = {s.width() for s in icon.availableSizes()}
+    assert {16, 32, 48, 256} <= sizes

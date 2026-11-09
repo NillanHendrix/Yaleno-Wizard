@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Yaleno Wizard – Logo: Zauberhut in zwei Abgleich-Pfeilen -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d4aff"/>
+      <stop offset="1" stop-color="#2a1b8f"/>
+    </linearGradient>
+    <linearGradient id="hat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd84d"/>
+      <stop offset="1" stop-color="#ffb000"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <!-- Abgleich-Pfeile -->
+  <g fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round">
+    <path d="M 52 140 A 78 78 0 0 1 178 66"/>
+    <path d="M 204 116 A 78 78 0 0 1 78 190"/>
+  </g>
+  <path d="M 196 50 L 200 94 L 158 82 Z" fill="#ffffff"/>
+  <path d="M 60 206 L 56 162 L 98 174 Z" fill="#ffffff"/>
+  <!-- Zauberhut -->
+  <path d="M 94 158 C 108 128 116 98 122 74 C 126 60 140 52 162 56 C 148 62 142 70 141 82
+           C 140 106 148 134 162 158 Z" fill="url(#hat)"/>
+  <ellipse cx="128" cy="160" rx="52" ry="12" fill="#ffd84d"/>
+  <path d="M 100 144 Q 128 152 156 144 L 160 154 Q 128 163 96 154 Z" fill="#4b32c8"/>
+  <!-- Sterne -->
+  <path d="M 127 104 l 4 9 l 9 1 l -7 6 l 2 9 l -8 -5 l -8 5 l 2 -9 l -7 -6 l 9 -1 Z" fill="#2a1b8f"/>
+  <circle cx="186" cy="146" r="5" fill="#ffd84d"/>
+  <circle cx="72" cy="104" r="4" fill="#ffd84d"/>
+</svg>

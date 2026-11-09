@@ -49,12 +49,12 @@ class BackgroundSync(QObject):
 
     # ------------------------------------------------------------------ Tray
     def _icon(self, busy: bool = False) -> QIcon:
-        theme = QIcon.fromTheme("folder-sync" if not busy else "view-refresh")
-        if not theme.isNull():
-            return theme
-        style = QApplication.style()
-        return style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload if busy
-                                  else QStyle.StandardPixmap.SP_DriveNetIcon)
+        if busy:
+            theme = QIcon.fromTheme("view-refresh")
+            return theme if not theme.isNull() else \
+                QApplication.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        from ..assets import app_icon
+        return app_icon()
 
     def _make_tray(self) -> None:
         self.tray = QSystemTrayIcon(self._icon(), self)
@@ -182,8 +182,20 @@ def run_background(app: QApplication) -> int:
         print("Der Hintergrund-Abgleich läuft bereits.")
         return 0
     if not Profile.load().bg_enabled:
-        print("Der Hintergrund-Abgleich ist ausgeschaltet (im Wizard unter „Hintergrund-Abgleich …“ aktivieren).")
+        msg = "Der Hintergrund-Abgleich ist ausgeschaltet – im Wizard unter „Hintergrund-Abgleich …“ aktivieren."
+        print(msg)
         lock.unlock()
+        if QSystemTrayIcon.isSystemTrayAvailable():  # von Hand gestartet (Startmenü) → Hinweis zeigen
+            from PySide6.QtWidgets import QMessageBox
+            box = QMessageBox(QMessageBox.Icon.Information, APP_NAME, msg)
+            open_btn = box.addButton("Wizard öffnen", QMessageBox.ButtonRole.AcceptRole)
+            box.addButton(QMessageBox.StandardButton.Close)
+            box.exec()
+            if box.clickedButton() is open_btn:
+                from .wizard import YalenoWizard
+                w = YalenoWizard()
+                w.show()
+                return app.exec()
         return 0
     app.setQuitOnLastWindowClosed(False)
     bg = BackgroundSync()
