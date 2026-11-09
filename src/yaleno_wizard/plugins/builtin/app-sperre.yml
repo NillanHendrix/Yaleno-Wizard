@@ -1,0 +1,11 @@
+# Yaleno-Plugin: schaltet eine eingebaute Funktion frei (enthält keinen Programmcode).
+yaleno_plugin: 1
+id: app-sperre
+name: App-Sperre
+version: 1.0.0
+author: Yaleno Wizard
+description: >-
+  Fragt beim Öffnen des Wizards nach einem Passwort oder Security-Key/Passkey. Schützt die Bedienung, nicht die Dateien auf der Festplatte.
+source: https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/src/yaleno_wizard/plugins/builtin/app-sperre.yml
+type: feature
+feature: app_lock
