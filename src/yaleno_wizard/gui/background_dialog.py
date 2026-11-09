@@ -86,7 +86,11 @@ class BackgroundDialog(QDialog):
         out = []
         if not p.sync_categories:
             out.append("Noch keine Kategorien gewählt – bitte zuerst einmal im Wizard abgleichen.")
-        if p.storage_type == "webdav" and not load_secret(p):
+        if p.storage_type == "webdav" and p.webdav_auth == "oidc":
+            from ..credentials import load_oidc_token
+            if not load_oidc_token(p.oidc_config().account):
+                out.append("Nicht per OIDC angemeldet – im Wizard „Mit OIDC anmelden …“.")
+        elif p.storage_type == "webdav" and not load_secret(p):
             out.append("Das App-Passwort ist nicht gespeichert – beim Verbinden „dauerhaft speichern“ anhaken.")
         return out
 

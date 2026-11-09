@@ -418,3 +418,32 @@ def test_app_unlock_dialog(app, monkeypatch):
     dlg.pw.setText("geheim1")
     dlg._try()
     assert dlg.result() == 1
+
+
+def test_connection_page_oidc_and_login_flow_fields(app):
+    from yaleno_wizard.gui.pages.connection import ConnectionPage
+    from yaleno_wizard.gui.state import WizardState
+    from yaleno_wizard.plugins import manager
+    from yaleno_wizard.settings import Profile
+
+    page = ConnectionPage(WizardState())
+    page.rb_dav.setChecked(True)
+    assert not page.dav_form.isRowVisible(page.dav_auth) and page.browser_btn.isHidden()
+
+    prof = Profile()
+    manager.set_enabled("oidc", True, prof)
+    manager.set_enabled("nextcloud-login", True, prof)
+    page = ConnectionPage(WizardState())
+    page.show()
+    page.rb_dav.setChecked(True)
+    assert page.dav_form.isRowVisible(page.dav_auth) and not page.browser_btn.isHidden()
+    page.dav_auth.setCurrentIndex(page.dav_auth.findData("oidc"))
+    assert page.dav_form.isRowVisible(page.oidc_issuer) and not page.dav_form.isRowVisible(page.pw_widget)
+    page.dav_url.setText("https://cloud.example.org")
+    page.oidc_issuer.setText("")
+    assert not page.isComplete()
+    page.oidc_issuer.setText("https://id.example.org")
+    assert page.isComplete() and "noch nicht angemeldet" in page.oidc_status.text()
+    prof2 = page._profile_from_fields()
+    assert prof2.webdav_auth == "oidc" and prof2.oidc_issuer == "https://id.example.org"
+    page.close()

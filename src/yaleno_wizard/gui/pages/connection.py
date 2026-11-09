@@ -5,10 +5,10 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QScrollArea, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFrame, QScrollArea, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
     QMessageBox, QPushButton, QRadioButton, QSpinBox, QVBoxLayout, QWidget, QWizardPage,
 )
 
@@ -33,7 +33,7 @@ class ConnectionPage(QWizardPage):
         p = state.profile
         self.rb_sftp = QRadioButton("SFTP-Server (SSH-Key)")
         self.rb_local = QRadioButton("Lokaler Ordner (z. B. Netzlaufwerk, gemeinsamer Cloud-Ordner, USB-Festplatte)")
-        self.rb_dav = QRadioButton("Nextcloud / WebDAV (App-Passwort)")
+        self.rb_dav = QRadioButton("Nextcloud / WebDAV")
         grp = QButtonGroup(self)
         grp.addButton(self.rb_sftp)
         grp.addButton(self.rb_dav)
@@ -89,14 +89,49 @@ class ConnectionPage(QWizardPage):
                           "„Neues App-Passwort erstellen“. Bei Zwei-Faktor-Anmeldung ist das nötig.")
         dav_hint.setWordWrap(True)
         dav_hint.setStyleSheet("color: gray")
+        self.dav_hint = dav_hint
+        self.dav_auth = QComboBox()
+        self.dav_auth.addItem("App-Passwort", "app_password")
+        self.dav_auth.addItem("OpenID Connect (OIDC)", "oidc")
+        self.dav_auth.setCurrentIndex(max(0, self.dav_auth.findData(p.webdav_auth)))
+        self.browser_btn = QPushButton("Im Browser anmelden …")
+        self.browser_btn.setToolTip("Anmeldung im Nextcloud-Fenster des Browsers (auch per Passkey oder "
+                                    "Zwei-Faktor). Dabei wird automatisch ein App-Passwort angelegt.")
+        self.browser_btn.clicked.connect(self._browser_login)
+        pw_row = QHBoxLayout()
+        pw_row.setContentsMargins(0, 0, 0, 0)
+        pw_row.addWidget(self.dav_pw, 1)
+        pw_row.addWidget(self.browser_btn)
+        self.pw_widget = QWidget()
+        self.pw_widget.setLayout(pw_row)
+        self.oidc_issuer = QLineEdit(p.oidc_issuer)
+        self.oidc_issuer.setPlaceholderText("https://id.example.org/realms/home")
+        self.oidc_client = QLineEdit(p.oidc_client_id or "yaleno-wizard")
+        self.oidc_btn = QPushButton("Mit OIDC anmelden …")
+        self.oidc_btn.clicked.connect(self._oidc_login)
+        self.oidc_status = QLabel()
+        self.oidc_status.setStyleSheet("color: gray")
+        oidc_row = QHBoxLayout()
+        oidc_row.setContentsMargins(0, 0, 0, 0)
+        oidc_row.addWidget(self.oidc_btn)
+        oidc_row.addWidget(self.oidc_status, 1)
+        self.oidc_widget = QWidget()
+        self.oidc_widget.setLayout(oidc_row)
+        self._oidc_tokens = None
         self.dav_box = QWidget()
         dform = QFormLayout(self.dav_box)
+        self.dav_form = dform
         dform.addRow("Server:", self.dav_url)
+        dform.addRow("Anmeldung:", self.dav_auth)
         dform.addRow("Benutzer:", self.dav_user)
-        dform.addRow("App-Passwort:", self.dav_pw)
+        dform.addRow("App-Passwort:", self.pw_widget)
         dform.addRow("", self.dav_remember)
+        dform.addRow("OIDC-Anbieter:", self.oidc_issuer)
+        dform.addRow("Client-ID:", self.oidc_client)
+        dform.addRow("", self.oidc_widget)
         dform.addRow("Ordner:", self.dav_folder)
         dform.addRow("", dav_hint)
+        self.dav_auth.currentIndexChanged.connect(self._update_dav_auth)
 
         # --- Lokal
         self.local_dir = QLineEdit(p.local_dir)
@@ -159,7 +194,8 @@ class ConnectionPage(QWizardPage):
         outer.addWidget(self.status)
         outer.addWidget(self.cfg_label)
 
-        for w in (self.host, self.user, self.key, self.local_dir, self.dav_url, self.dav_user, self.dav_pw):
+        for w in (self.host, self.user, self.key, self.local_dir, self.dav_url, self.dav_user, self.dav_pw,
+                  self.oidc_issuer, self.oidc_client):
             w.textChanged.connect(self.completeChanged)
         self.key.textChanged.connect(self._update_pub)
         self.rb_sftp.toggled.connect(self._update_mode)
@@ -198,6 +234,10 @@ class ConnectionPage(QWizardPage):
         self.dav_url.setText(p.webdav_url)
         self.dav_user.setText(p.webdav_user)
         self.dav_folder.setText(p.webdav_folder or "Yaleno")
+        self.dav_auth.setCurrentIndex(max(0, self.dav_auth.findData(p.webdav_auth)))
+        self.oidc_issuer.setText(p.oidc_issuer)
+        self.oidc_client.setText(p.oidc_client_id or "yaleno-wizard")
+        self._oidc_tokens = None
         self.local_dir.setText(p.local_dir)
         self.dav_pw.clear()
         self.passphrase.clear()
@@ -224,6 +264,7 @@ class ConnectionPage(QWizardPage):
         self.state.profile = loaded
         self.state.close_storage()
         self._fill_fields(loaded)
+        self._update_features()
         self._update_remember_labels()
         self.status.setText(f"Einstellungen aus {path} übernommen – mit „Weiter“ verbinden und speichern.")
 
@@ -293,6 +334,8 @@ class ConnectionPage(QWizardPage):
         if self.rb_local.isChecked():
             return bool(self.local_dir.text().strip())
         if self.rb_dav.isChecked():
+            if self._oidc_mode():
+                return all(w.text().strip() for w in (self.dav_url, self.oidc_issuer, self.oidc_client))
             return all(w.text().strip() for w in (self.dav_url, self.dav_user)) and bool(self.dav_pw.text())
         return all(w.text().strip() for w in (self.host, self.user, self.key))
 
@@ -302,7 +345,8 @@ class ConnectionPage(QWizardPage):
             return ("local", self.local_dir.text().strip())
         if self.rb_dav.isChecked():
             return ("webdav", self.dav_url.text().strip(), self.dav_user.text().strip(),
-                    self.dav_folder.text().strip())
+                    self.dav_folder.text().strip(), self.dav_auth.currentData(),
+                    self.oidc_issuer.text().strip(), self.oidc_client.text().strip())
         return ("sftp", self.host.text().strip(), self.port.value(), self.user.text().strip(),
                 self.key.text().strip(), self.remote_base.text().strip() or ".")
 
@@ -322,7 +366,7 @@ class ConnectionPage(QWizardPage):
             p.storage_type, p.local_dir = "local", key[1]
         elif key[0] == "webdav":
             p.storage_type = "webdav"
-            p.webdav_url, p.webdav_user, p.webdav_folder = key[1:]
+            p.webdav_url, p.webdav_user, p.webdav_folder, p.webdav_auth, p.oidc_issuer, p.oidc_client_id = key[1:]
         else:
             p.storage_type = "sftp"
             p.host, p.port, p.username, p.key_path, p.base_path = key[1:]
@@ -347,7 +391,11 @@ class ConnectionPage(QWizardPage):
         secret = self._secret()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            storage, base = open_storage(prof, secret, self._confirm_host_key)
+            auth = None
+            if prof.storage_type == "webdav" and prof.webdav_auth == "oidc" and self._oidc_tokens is not None:
+                from ...storage.connect import oidc_auth
+                auth = oidc_auth(prof, self._oidc_tokens)
+            storage, base = open_storage(prof, secret, self._confirm_host_key, auth=auth)
             store = Store(storage, base)
             try:
                 head = store.head()
@@ -391,7 +439,7 @@ class ConnectionPage(QWizardPage):
             msg += " 🔐 verschlüsselt."
 
         # Einstellungen + Anmeldedaten dauerhaft speichern
-        if prof.storage_type != "local":
+        if prof.storage_type != "local" and not (prof.storage_type == "webdav" and prof.webdav_auth == "oidc"):
             want = ("keyring" if keyring_available() and prof.password_store != "file" else "file") \
                 if self._remember() else "none"
             where = save_secret(prof, secret, want)
@@ -422,7 +470,98 @@ class ConnectionPage(QWizardPage):
     def _update_features(self) -> None:
         """Knöpfe für Funktionen ein-/ausblenden, die Plugins freischalten."""
         from ...plugins.registry import feature_enabled
-        self.lock_btn.setVisible(feature_enabled("app_lock", self.state.profile))
+        prof = self.state.profile
+        self.lock_btn.setVisible(feature_enabled("app_lock", prof))
+        self._feat_oidc = feature_enabled("oidc", prof) or prof.webdav_auth == "oidc"
+        self._feat_flow = feature_enabled("nextcloud_login_flow", prof)
+        self._update_dav_auth()
+
+    def _oidc_mode(self) -> bool:
+        return self.dav_auth.currentData() == "oidc"
+
+    def _update_dav_auth(self) -> None:
+        if not hasattr(self, "_feat_oidc"):
+            return
+        if not self._feat_oidc and self._oidc_mode():
+            self.dav_auth.setCurrentIndex(0)
+        oidc = self._oidc_mode()
+        f = self.dav_form
+        f.setRowVisible(self.dav_auth, self._feat_oidc)
+        f.setRowVisible(self.pw_widget, not oidc)
+        f.setRowVisible(self.dav_remember, not oidc)
+        f.setRowVisible(self.dav_hint, not oidc)
+        for w in (self.oidc_issuer, self.oidc_client, self.oidc_widget):
+            f.setRowVisible(w, oidc)
+        self.browser_btn.setVisible(self._feat_flow and not oidc)
+        self.dav_user.setPlaceholderText("optional – wird bei Nextcloud ermittelt" if oidc else "")
+        if oidc:
+            from ...credentials import load_oidc_token
+            has = self._oidc_tokens is not None or bool(load_oidc_token(self._profile_from_fields().oidc_config().account))
+            self.oidc_status.setText("✔ angemeldet" if has else "noch nicht angemeldet")
+        self.completeChanged.emit()
+
+    def _browser_login(self) -> None:
+        from ...storage.auth import AuthError, login_flow_poll, login_flow_start
+        from ..browser_login import Cancelled, run_waiting
+        url = self.dav_url.text().strip()
+        if not url:
+            self.status.setText("⚠ Bitte zuerst die Adresse der Nextcloud eintragen.")
+            return
+        try:
+            flow = login_flow_start(url)
+        except AuthError as exc:
+            self.status.setText(f"⚠ {exc}")
+            return
+        QDesktopServices.openUrl(QUrl(flow.login_url))
+        try:
+            res = run_waiting(self, "Nextcloud-Anmeldung", "Bitte im Browser bei Nextcloud anmelden und den "
+                              "Zugriff erlauben …", lambda rep: login_flow_poll(flow, cancelled=rep.cancelled))
+        except Cancelled:
+            self.status.setText("Anmeldung im Browser abgebrochen.")
+            return
+        except RuntimeError as exc:
+            self.status.setText(f"⚠ {exc}")
+            return
+        self.dav_url.setText(res.server)
+        self.dav_user.setText(res.login_name)
+        self.dav_pw.setText(res.app_password)
+        self.dav_remember.setChecked(True)
+        self.status.setText(f"✔ Angemeldet als {res.login_name} – App-Passwort übernommen. "
+                            "Mit „Weiter“ verbinden.")
+
+    def _oidc_login(self) -> None:
+        from ...credentials import save_oidc_token
+        from ...storage.auth import authorize
+        from ..browser_login import Cancelled, run_waiting
+        cfg = self._profile_from_fields().oidc_config()
+        if not (cfg.issuer and cfg.client_id):
+            self.status.setText("⚠ Bitte OIDC-Anbieter und Client-ID eintragen.")
+            return
+        try:
+            tokens = run_waiting(self, "OIDC-Anmeldung", "Bitte im Browser anmelden …",
+                                 lambda rep: authorize(cfg, cancelled=rep.cancelled))
+        except Cancelled:
+            self.status.setText("Anmeldung abgebrochen.")
+            return
+        except RuntimeError as exc:
+            self.status.setText(f"⚠ {exc}")
+            return
+        self._oidc_tokens = tokens
+        who = tokens.id_claims.get("preferred_username") or tokens.id_claims.get("email") or ""
+        if who and not self.dav_user.text().strip():
+            self.dav_user.setText(str(who))
+        msg = f"✔ Per OIDC angemeldet{' als ' + str(who) if who else ''}."
+        if tokens.refresh_token:
+            try:
+                save_oidc_token(cfg.account, tokens.refresh_token)
+            except OSError as exc:
+                msg += f" ⚠ Token nicht gemerkt: {exc}"
+        else:
+            msg += (" ⚠ Kein Refresh-Token erhalten (Scope „offline_access“ erlaubt?) – der "
+                    "Hintergrund-Abgleich kann sich so nicht selbst anmelden.")
+        self.status.setText(msg)
+        self.state.close_storage()
+        self._update_dav_auth()
 
     def _test(self) -> None:
         self._connect()

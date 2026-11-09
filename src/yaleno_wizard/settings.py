@@ -12,6 +12,10 @@ wählen. Die Datei kann von Hand bearbeitet und auf andere Geräte kopiert werde
         username: niko
         password: xxxxx-xxxxx-xxxxx-xxxxx-xxxxx   # nur bei password_store: file
         folder: Yaleno
+        auth: app_password         # app_password | oidc (Plugin „OIDC“)
+        oidc:                      # nur bei auth: oidc
+          issuer: https://id.example.org/realms/home
+          client_id: yaleno-wizard
       sftp:
         host: backup.example.org
         port: 22
@@ -101,6 +105,11 @@ class Profile:
     webdav_url: str = ""
     webdav_user: str = ""
     webdav_folder: str = "Yaleno"
+    webdav_auth: str = "app_password"  # app_password | oidc
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_scopes: list[str] = field(default_factory=lambda: ["openid", "profile", "email", "offline_access"])
+    oidc_client_secret: str = ""
     # Anmeldedaten: im Schlüsselbund oder (nur bei password_store=file) hier im Klartext
     password_store: str = "keyring"  # keyring | file | none
     webdav_password: str = ""
@@ -122,6 +131,12 @@ class Profile:
     def to_yaml_dict(self, include_secrets: bool = True) -> dict:
         file_secrets = include_secrets and self.password_store == "file"
         webdav = {"url": self.webdav_url, "username": self.webdav_user, "folder": self.webdav_folder}
+        if self.webdav_auth != "app_password" or self.oidc_issuer:
+            webdav["auth"] = self.webdav_auth
+            webdav["oidc"] = {"issuer": self.oidc_issuer, "client_id": self.oidc_client_id,
+                              "scopes": self.oidc_scopes}
+            if self.oidc_client_secret:
+                webdav["oidc"]["client_secret"] = self.oidc_client_secret
         sftp = {"host": self.host, "port": self.port, "username": self.username, "key_file": self.key_path,
                 "path": self.base_path}
         if file_secrets:
@@ -174,6 +189,13 @@ class Profile:
         if not isinstance(lock_keys, list) or not all(isinstance(k, dict) and k.get("credential") for k in lock_keys):
             raise ConfigError("app_lock.security_keys muss eine Liste mit credential-Einträgen sein.")
         wd, sf, lo = sec(st, "webdav"), sec(st, "sftp"), sec(st, "local")
+        oidc = sec(wd, "oidc")
+        wd_auth = str(wd.get("auth") or "app_password").lower()
+        if wd_auth not in ("app_password", "oidc"):
+            raise ConfigError(f"Unbekannte Anmeldung „{wd_auth}“ (erlaubt: app_password, oidc).")
+        scopes = oidc.get("scopes") or ["openid", "profile", "email", "offline_access"]
+        if not isinstance(scopes, list):
+            raise ConfigError("storage.webdav.oidc.scopes muss eine Liste sein.")
         typ = str(st.get("type", "sftp")).lower()
         if typ == "nextcloud":
             typ = "webdav"
@@ -207,6 +229,9 @@ class Profile:
             key_path=str(sf.get("key_file") or ""), base_path=str(sf.get("path") or "."),
             webdav_url=str(wd.get("url") or ""), webdav_user=str(wd.get("username") or ""),
             webdav_folder=str(wd.get("folder") if wd.get("folder") is not None else "Yaleno"),
+            webdav_auth=wd_auth, oidc_issuer=str(oidc.get("issuer") or ""),
+            oidc_client_id=str(oidc.get("client_id") or ""), oidc_scopes=[str(x) for x in scopes],
+            oidc_client_secret=str(oidc.get("client_secret") or ""),
             password_store=store,
             webdav_password=str(wd.get("password") or ""), sftp_passphrase=str(sf.get("passphrase") or ""),
             backup_name=str(d.get("device") or ""),
@@ -223,6 +248,10 @@ class Profile:
             app_lock_keys=[{"label": str(k.get("label") or "Security-Key"), "credential": str(k["credential"])}
                            for k in lock_keys],
         )
+
+    def oidc_config(self):
+        from .storage.auth import OIDCConfig
+        return OIDCConfig(self.oidc_issuer, self.oidc_client_id, tuple(self.oidc_scopes), self.oidc_client_secret)
 
     def to_yaml(self, include_secrets: bool = True) -> str:
         head = ("# Yaleno Wizard – Verbindung, Anmeldung und Abgleich\n"

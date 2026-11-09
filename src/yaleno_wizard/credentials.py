@@ -88,54 +88,68 @@ def delete_keyring_secret(p: Profile) -> None:
         pass
 
 
-# ---------------------------------------------------------------------- Schlüssel verschlüsselter Speicher
-def _store_account(store_id: str) -> str:
-    return f"store:{store_id}"
-
-
-def _store_key_file(store_id: str):
+# ---------------------------------------------------------------------- weitere Geheimnisse
+def _secret_file(name: str):
+    import hashlib
     from .settings import config_dir
-    return config_dir() / "keys" / f"{store_id}.key"
+    safe = hashlib.sha256(name.encode("utf-8")).hexdigest()[:32]
+    return config_dir() / "keys" / f"{safe}.key"
 
 
-def save_store_key(store_id: str, master: bytes) -> str:
-    """Merkt den Hauptschlüssel eines verschlüsselten Speichers (für den Hintergrund-Abgleich).
-
-    Bevorzugt im Schlüsselbund, sonst in ``~/.config/yaleno-wizard/keys/<id>.key`` (nur für dich
-    lesbar). Gibt den Ort zurück (``keyring`` | ``file``).
-    """
-    import base64
+def save_value(account_name: str, value: str) -> str:
+    """Speichert ein Geheimnis im Schlüsselbund, sonst in ``keys/`` (nur für dich lesbar)."""
     import os
-    value = base64.b64encode(master).decode("ascii")
     if keyring_available():
         try:
             import keyring
-            keyring.set_password(SERVICE, _store_account(store_id), value)
-            _store_key_file(store_id).unlink(missing_ok=True)
+            keyring.set_password(SERVICE, account_name, value)
+            _secret_file(account_name).unlink(missing_ok=True)
             return "keyring"
         except Exception:
             pass
-    f = _store_key_file(store_id)
+    f = _secret_file(account_name)
     f.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="ascii") as fh:
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(value)
     return "file"
 
 
-def load_store_key(store_id: str) -> bytes | None:
-    import base64
-    value = None
+def load_value(account_name: str) -> str | None:
     try:
         import keyring
-        value = keyring.get_password(SERVICE, _store_account(store_id))
+        value = keyring.get_password(SERVICE, account_name)
+        if value:
+            return value
     except Exception:
         pass
+    try:
+        return _secret_file(account_name).read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def delete_value(account_name: str) -> None:
+    try:
+        import keyring
+        keyring.delete_password(SERVICE, account_name)
+    except Exception:
+        pass
+    _secret_file(account_name).unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------- Schlüssel verschlüsselter Speicher
+def save_store_key(store_id: str, master: bytes) -> str:
+    """Merkt den Hauptschlüssel eines verschlüsselten Speichers (für den Hintergrund-Abgleich)."""
+    import base64
+    return save_value(f"store:{store_id}", base64.b64encode(master).decode("ascii"))
+
+
+def load_store_key(store_id: str) -> bytes | None:
+    import base64
+    value = load_value(f"store:{store_id}")
     if not value:
-        try:
-            value = _store_key_file(store_id).read_text(encoding="ascii").strip()
-        except OSError:
-            return None
+        return None
     try:
         return base64.b64decode(value)
     except ValueError:
@@ -143,9 +157,17 @@ def load_store_key(store_id: str) -> bytes | None:
 
 
 def delete_store_key(store_id: str) -> None:
-    try:
-        import keyring
-        keyring.delete_password(SERVICE, _store_account(store_id))
-    except Exception:
-        pass
-    _store_key_file(store_id).unlink(missing_ok=True)
+    delete_value(f"store:{store_id}")
+
+
+# ---------------------------------------------------------------------- OIDC
+def save_oidc_token(account_name: str, refresh_token: str) -> str:
+    return save_value(account_name, refresh_token)
+
+
+def load_oidc_token(account_name: str) -> str | None:
+    return load_value(account_name)
+
+
+def delete_oidc_token(account_name: str) -> None:
+    delete_value(account_name)

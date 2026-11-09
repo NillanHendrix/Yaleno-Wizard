@@ -141,30 +141,32 @@ class WebDAVStorage(Storage):
     PART_SUFFIX = ".yaleno-tmp"  # Nextcloud behandelt *.part-Dateien besonders
 
     def __init__(self, root_url: str, username: str, password: str, label: str | None = None,
-                 verify: bool | str = True):
+                 verify: bool | str = True, auth=None):
         if not root_url.endswith("/"):
             root_url += "/"
         self.root_url = root_url
         self._root_path = unquote(urlsplit(root_url).path).rstrip("/")
         self.session = requests.Session()
-        self.session.auth = (username, password)
+        self.session.auth = auth if auth is not None else (username, password)
         self.session.verify = verify
         self.session.headers["User-Agent"] = f"yaleno-wizard/{__version__}"
         self._label = label or root_url
 
     # ---------------------------------------------------------------- verbinden
     @classmethod
-    def connect(cls, settings: WebDAVSettings, password: str, verify: bool | str = True) -> "WebDAVStorage":
+    def connect(cls, settings: WebDAVSettings, password: str, verify: bool | str = True,
+                auth=None) -> "WebDAVStorage":
+        """``auth``: statt Benutzer/Passwort z. B. ``OIDCBearerAuth`` (Anmeldung per OIDC)."""
         url = settings.url.strip()
         if "://" not in url:
             url = "https://" + url
-        dav_root = discover_dav_root(url, settings.username, password, verify)
-        st = cls(dav_root, settings.username, password, verify=verify)
+        dav_root = discover_dav_root(url, settings.username, password, verify, auth=auth)
+        st = cls(dav_root, settings.username, password, verify=verify, auth=auth)
         st.check_access()
         folder = "/".join(p for p in settings.folder.strip().strip("/").split("/") if p not in ("", "."))
         if folder:
             st.makedirs(folder)
-            st = cls(dav_root + quote(folder) + "/", settings.username, password, verify=verify)
+            st = cls(dav_root + quote(folder) + "/", settings.username, password, verify=verify, auth=auth)
         host = urlsplit(url).netloc
         st._label = f"webdav://{settings.username}@{host}/{folder}"
         return st
@@ -335,7 +337,7 @@ class WebDAVStorage(Storage):
 
 
 # ---------------------------------------------------------------------- Nextcloud
-def discover_dav_root(url: str, username: str, password: str, verify: bool | str = True) -> str:
+def discover_dav_root(url: str, username: str, password: str, verify: bool | str = True, auth=None) -> str:
     """Ermittelt die WebDAV-Adresse der Dateien.
 
     Ist ``url`` eine Nextcloud (``status.php`` antwortet), wird über den angemeldeten Benutzer
@@ -363,13 +365,15 @@ def discover_dav_root(url: str, username: str, password: str, verify: bool | str
         body = ('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/>'
                 '</d:prop></d:propfind>')
         try:
-            r = session.request("PROPFIND", base + "/remote.php/dav/", auth=(username, password),
+            r = session.request("PROPFIND", base + "/remote.php/dav/", auth=auth or (username, password),
                                 data=body, headers={"Depth": "0", "Content-Type": "application/xml"},
                                 timeout=TIMEOUT)
         except requests.RequestException as exc:
             raise StorageError(f"Verbindung zu Nextcloud fehlgeschlagen: {exc}") from exc
         if r.status_code == 401:
-            raise StorageError("Anmeldung bei Nextcloud abgelehnt – Benutzername und App-Passwort prüfen.")
+            raise StorageError("Anmeldung bei Nextcloud abgelehnt – " + (
+                "OIDC-Token wird nicht akzeptiert (Nextcloud-App „user_oidc“ mit Bearer-Prüfung aktiv?)."
+                if auth is not None else "Benutzername und App-Passwort prüfen."))
         uid = username
         if r.status_code == 207:
             href = ET.fromstring(r.content).findtext(f".//{DAV}current-user-principal/{DAV}href") or ""
