@@ -62,9 +62,24 @@ class BackgroundDialog(QDialog):
         lay.addLayout(form)
         lay.addWidget(self.warn)
         lay.addWidget(note)
+        lay.addStretch(1)
         lay.addWidget(buttons)
         self.enabled.toggled.connect(self._update)
         self._update()
+
+        self.setMinimumWidth(380)
+        self.resize(480, self._min_height(480))
+
+    # Umbrechende Labels: Qt berücksichtigt heightForWidth nicht bei der Mindestgröße von Fenstern,
+    # deshalb die Mindesthöhe passend zur aktuellen Breite selbst setzen (sonst überlappt der Inhalt).
+    def _min_height(self, width: int) -> int:
+        return self.layout().totalHeightForWidth(width)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        h = self._min_height(event.size().width())
+        if h > 0 and h != self.minimumHeight():
+            self.setMinimumHeight(h)
 
     def problems(self) -> list[str]:
         p = self.profile
