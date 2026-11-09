@@ -9,7 +9,8 @@ block_cipher = None
 a = Analysis(
     ["src/yaleno_wizard/__main__.py"],
     pathex=["src"],
-    hiddenimports=["yaleno_wizard.catalog.linux", "yaleno_wizard.catalog.windows"],
+    hiddenimports=["yaleno_wizard.catalog.linux", "yaleno_wizard.catalog.windows",
+                   "keyring.backends.SecretService", "keyring.backends.kwallet", "keyring.backends.Windows"],
     excludes=[
         "tkinter", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore",
         "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtMultimedia", "PySide6.QtCharts",

@@ -45,6 +45,10 @@ class Storage(ABC):
     @abstractmethod
     def remove(self, path: str) -> None: ...
 
+    @abstractmethod
+    def create_exclusive(self, path: str, data: bytes) -> None:
+        """Legt eine Datei an; FileExistsError, falls sie schon existiert (für Sperren)."""
+
     def chmod(self, path: str, mode: int) -> None:  # optional
         pass
 

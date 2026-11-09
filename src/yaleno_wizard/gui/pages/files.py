@@ -22,8 +22,8 @@ class FilesPage(QWizardPage):
         super().__init__()
         self.state = state
         self.setTitle("Dateien auswählen")
-        self.setSubTitle("Einzelne Ordner oder Dateien ab- oder anwählen. Die Auswahl lässt sich als "
-                         "Bestand-Textdatei exportieren und später wieder importieren.")
+        self.setSubTitle("Einzelne Ordner oder Dateien ab- oder anwählen. Abgewählte Dateien bleiben bei "
+                         "diesem Vorgang unberührt. Kursiv = liegt nur im Speicher und wird geholt.")
 
         self.model = FileTreeModel(self)
         self.proxy = QSortFilterProxyModel(self)
@@ -78,11 +78,20 @@ class FilesPage(QWizardPage):
 
     def initializePage(self) -> None:
         entries = self.state.entries_in_categories()
-        self.model.set_entries(entries, self.state.selected, self.state.category_names(), self._command_label)
+        selected = self.state.selected
+        if selected is None and self.state.mode == Mode.SYNC and self.state.profile.sync_excludes:
+            # gemerkte Abwahl vom letzten Mal (gilt auch für den Hintergrund-Abgleich)
+            from ...core.background import excluded_selection
+            selected = excluded_selection(self.state.available_entries(), self.state.profile.sync_excludes)
+        self.model.set_entries(entries, selected, self.state.category_names(), self._command_label,
+                               note=self._note)
         self.tree.expandToDepth(0)
         for col in (1, 2):
             self.tree.resizeColumnToContents(col)
             self.tree.setColumnWidth(col, max(self.tree.columnWidth(col), 110))
+
+    def _note(self, e: Entry) -> str:
+        return "nur im Speicher – wird auf dieses Gerät geholt" if self.state.remote_only(e) else ""
 
     def _filter(self, text: str) -> None:
         self.proxy.setFilterFixedString(text)
@@ -103,7 +112,23 @@ class FilesPage(QWizardPage):
         keep = {k for k in prev if k not in shown} if prev is not None else {
             e.key for e in self.state.available_entries() if e.key not in shown
         }
-        self.state.selected = keep | self.model.selected_keys()
+        new = keep | self.model.selected_keys()
+        if new != self.state.selected:
+            self.state.plan = None
+        self.state.selected = new
+        if self.state.mode == Mode.SYNC:
+            excl = self.model.excluded_patterns()
+            prof = self.state.profile
+            # Abwahl in nicht angezeigten Kategorien beibehalten
+            shown_cats = {e.category for e in (n.entry for n in self.model.leaves.values())}
+            merged = {c: v for c, v in prof.sync_excludes.items() if c not in shown_cats}
+            merged.update(excl)
+            if merged != prof.sync_excludes:
+                prof.sync_excludes = merged
+                try:
+                    prof.save()
+                except OSError:
+                    pass
         return True
 
     def cleanupPage(self) -> None:
@@ -112,8 +137,8 @@ class FilesPage(QWizardPage):
     # ------------------------------------------------------------------ Bestand
     def _meta(self) -> dict[str, str]:
         s = self.state
-        if s.mode == Mode.RESTORE and s.manifest:
-            return {"host": s.manifest.host, "os": s.manifest.os, "snapshot": s.manifest.snapshot}
+        if s.mode == Mode.HISTORY and s.revision:
+            return {"host": s.source_host, "os": s.source_os, "version": str(s.revision.number)}
         return {"host": s.host_name, "os": s.os_name}
 
     def _export(self) -> None:

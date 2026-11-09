@@ -6,11 +6,10 @@ import paramiko
 import pytest
 
 from yaleno_wizard.catalog import catalog_for
-from yaleno_wizard.core.backup import run_backup
-from yaleno_wizard.core.manifest import list_snapshots, load_manifest
 from yaleno_wizard.core.reporter import Reporter
-from yaleno_wizard.core.restore import ConflictPolicy, plan_restore, run_restore
 from yaleno_wizard.core.scanner import Scanner
+from yaleno_wizard.core.store import Store, StoreLocked
+from yaleno_wizard.core.sync import ConflictWinner, SyncState, plan_sync, run_sync
 from yaleno_wizard.storage.base import StorageError
 from yaleno_wizard.storage.sftp import (
     ConnectionSettings, HostKeyMismatch, HostKeyRejected, KeyPassphraseRequired, SFTPStorage,
@@ -78,28 +77,44 @@ def test_wrong_user_and_passphrase(server, tmp_path):
         SFTPStorage.connect(_settings(srv, enc), kh, lambda *a: True)
 
 
-def test_backup_restore_over_sftp(server, tmp_path, mapper, fake_home):
+def _sync(storage, mapper, state_file, host, cats):
+    store = Store(storage, "/backups")
+    entries = Scanner(mapper).scan(LINUX, cats).entries
+    st = SyncState.load(state_file)
+    plan = plan_sync(store, entries, st, LINUX, mapper, "linux", host, set(cats), None)
+    res = run_sync(store, plan, st, LINUX, mapper, "linux", host, ConflictWinner.NEWER, Reporter())
+    assert not res.failed, res.failed
+    return res
+
+
+def test_sync_over_sftp(server, tmp_path, mapper, fake_home):
+    from .conftest import build_home
+    from yaleno_wizard.catalog.placeholders import PathMapper
+
     srv, key_file, remote_root = server
     remote_root.joinpath("backups").mkdir()
     storage = SFTPStorage.connect(_settings(srv, key_file), tmp_path / "kh", lambda *a: True)
     try:
-        entries = Scanner(mapper).scan(LINUX, ["personal", "shell", "keys"]).entries
-        r = run_backup(storage, "/backups", "testpc", "linux", LINUX, entries, Reporter())
-        assert r.ok and not r.failed
-        snaps = list_snapshots(storage, "/backups")
-        assert len(snaps) == 1
-        m = load_manifest(storage, snaps[0].path)
-        assert len(m.entries) == len(entries)
+        cats = ["personal", "shell", "keys"]
+        r = _sync(storage, mapper, tmp_path / "a.json", "laptop", cats)
+        assert r.uploaded == len(Scanner(mapper).scan(LINUX, cats).entries)
+        assert Store(storage, "/backups").head() == 1
 
-        (fake_home["DOCUMENTS"] / "Rechnungen" / "2026.pdf").unlink()
-        (fake_home["HOME"] / ".ssh" / "id_ed25519").unlink()
-        actions = plan_restore(m, m.entries, mapper, LINUX, "linux", tmp_path / "st")
-        res = run_restore(storage, snaps[0].path, m, actions, LINUX, ConflictPolicy.SKIP, Reporter())
-        assert not res.failed
-        assert res.written == 2
-        key = fake_home["HOME"] / ".ssh" / "id_ed25519"
+        # zweites Gerät holt alles, inkl. Dateirechten
+        other = PathMapper(build_home(tmp_path, "zweit", files=False))
+        r2 = _sync(storage, other, tmp_path / "b.json", "desktop", cats)
+        assert r2.downloaded == r.uploaded
+        key = other.to_local("{HOME}/.ssh/id_ed25519")
         assert key.read_text() == "PRIVATE"
         assert key.stat().st_mode & 0o777 == 0o600
+
+        # Sperre über SFTP (exklusives Anlegen)
+        store = Store(storage, "/backups")
+        store.acquire_lock("laptop")
+        with pytest.raises(StoreLocked):
+            Store(storage, "/backups").acquire_lock("desktop")
+        store.release_lock()
+        assert not (remote_root / "backups" / "yaleno" / "lock").exists()
     finally:
         storage.close()
 

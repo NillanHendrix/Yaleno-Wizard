@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Callable, Iterable
 
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QStyle
 
 from ..catalog.placeholders import DISPLAY_NAMES, PLACEHOLDER_RE
@@ -68,6 +69,7 @@ class FileTreeModel(QAbstractItemModel):
         self._dir_icon = style.standardIcon(QStyle.StandardPixmap.SP_DirIcon)
         self._file_icon = style.standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         self._cat_icon = style.standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)
+        self._note: Callable[[Entry], str] | None = None
 
     # ------------------------------------------------------------- aufbauen
     def set_entries(
@@ -76,8 +78,11 @@ class FileTreeModel(QAbstractItemModel):
         selected: set[tuple[str, str]] | None,
         category_names: dict[str, str],
         command_label: Callable[[Entry], str] | None = None,
+        note: Callable[[Entry], str] | None = None,
     ) -> None:
+        """``note`` liefert einen Hinweis je Datei (z. B. „nur im Speicher“), angezeigt kursiv + Tooltip."""
         self.beginResetModel()
+        self._note = note
         self.root = Node("", None)
         self.leaves = {}
         for e in entries:
@@ -122,6 +127,36 @@ class FileTreeModel(QAbstractItemModel):
 
     def selected_entries(self) -> list[Entry]:
         return [n.entry for n in self.leaves.values() if n.n_sel]  # type: ignore[misc]
+
+    def excluded_patterns(self) -> dict[str, list[str]]:
+        """Abgewählte Teilbäume als möglichst kurze Muster je Kategorie (Ordner enden auf „/“)."""
+        out: dict[str, list[str]] = {}
+
+        def first_leaf(n: Node) -> Entry | None:
+            while not n.is_leaf:
+                if not n.children:
+                    return None
+                n = n.children[0]
+            return n.entry
+
+        def walk(n: Node, depth: int) -> None:
+            for c in n.children:
+                if c.n_total and c.n_sel == 0:
+                    leaf = first_leaf(c)
+                    if leaf is None:
+                        continue
+                    if c.is_leaf:
+                        pat = leaf.logical
+                    elif depth == 0:
+                        pat = "*"  # ganze Kategorie abgewählt
+                    else:
+                        pat = "/".join(leaf.logical.split("/")[:depth]) + "/"
+                    out.setdefault(leaf.category, []).append(pat)
+                elif not c.is_leaf and c.n_sel < c.n_total:
+                    walk(c, depth + 1)
+
+        walk(self.root, 0)
+        return {c: sorted(v) for c, v in out.items()}
 
     def set_selection(self, keys: set[tuple[str, str]]) -> None:
         for k, n in self.leaves.items():
@@ -221,7 +256,7 @@ class FileTreeModel(QAbstractItemModel):
                 return node.name
             if col == 1:
                 if node.is_leaf and node.entry.is_command and not node.entry.size:
-                    return "beim Sichern"
+                    return "beim Abgleich"
                 if node.is_leaf or node.n_sel in (0, node.n_total):
                     return human_size(node.size_total)
                 return f"{human_size(node.size_sel)} von {human_size(node.size_total)}"
@@ -241,7 +276,12 @@ class FileTreeModel(QAbstractItemModel):
                 return self._cat_icon
             return self._file_icon if node.is_leaf else self._dir_icon
         if role == Qt.ItemDataRole.ToolTipRole and node.entry:
-            return node.entry.logical
+            note = self._note(node.entry) if self._note else ""
+            return node.entry.logical + (f"\n{note}" if note else "")
+        if role == Qt.ItemDataRole.FontRole and node.entry and self._note and self._note(node.entry):
+            f = QFont()
+            f.setItalic(True)
+            return f
         if role == Qt.ItemDataRole.TextAlignmentRole and col == 1:
             return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         return None

@@ -1,4 +1,4 @@
-"""Yaleno Wizard – Sichern und Wiederherstellen über SFTP."""
+"""Yaleno Wizard – Geräte über einen zentralen Speicher (SFTP) abgleichen, mit Versionsverlauf."""
 
 __version__ = "0.1.0"
 APP_NAME = "Yaleno Wizard"

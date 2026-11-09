@@ -1,4 +1,4 @@
-"""Eine einzelne Datei im Bestand (lokal gescannt oder aus einem Snapshot-Manifest)."""
+"""Eine einzelne Datei im Bestand (lokal gescannt oder aus einer Version des Speichers)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ class Entry:
     mtime: float = 0.0
     mode: int = 0o644
     sha256: str = ""
+    scope: str = ""       # Bereich im Speicher: "all", "os:linux", "host:<name>"
     source: Path | None = field(default=None, compare=False)  # nur lokal, nicht serialisiert
 
     @property
@@ -26,7 +27,7 @@ class Entry:
         return self.logical.startswith("@cmd/")
 
     def remote_relpath(self) -> str:
-        """Pfad innerhalb des Snapshot-Ordners: files/<kategorie>/<PLATZHALTER>/<rest>."""
+        """Relativer Ablagepfad: files/<kategorie>/<PLATZHALTER>/<rest> (für den Ablageordner)."""
         if self.is_command:
             rest = "_commands/" + self.logical[len("@cmd/"):]
         else:
@@ -42,6 +43,7 @@ class Entry:
             "mtime": self.mtime,
             "mode": self.mode,
             "sha256": self.sha256,
+            "scope": self.scope,
         }
 
     @classmethod
@@ -54,6 +56,7 @@ class Entry:
             mtime=float(d.get("mtime", 0.0)),
             mode=int(d.get("mode", 0o644)),
             sha256=d.get("sha256", ""),
+            scope=d.get("scope", ""),
         )
 
 

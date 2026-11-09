@@ -1,4 +1,4 @@
-"""Seite 4: Kategorien auswählen (beim Sichern mit vorherigem Scan)."""
+"""Seite 4: Kategorien auswählen (beim Abgleich mit vorherigem Scan dieses Geräts)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...core.entry import human_size
-from ...core.scanner import ScanResult, Scanner
+from ...core.scanner import Scanner
 from ..state import Mode, WizardState
 from ..worker import Worker
 
@@ -48,15 +48,16 @@ class CategoriesPage(QWizardPage):
 
     # ------------------------------------------------------------------ init
     def initializePage(self) -> None:
-        if self.state.mode == Mode.BACKUP:
-            self.setSubTitle("Was soll gesichert werden? Die Zahlen zeigen, was auf diesem Rechner gefunden wurde.")
+        if self.state.mode == Mode.SYNC:
+            self.setSubTitle("Was soll abgeglichen werden? „hier“ = auf diesem Gerät gefunden, "
+                             "„Speicher“ = zentral abgelegt und für dieses Gerät verfügbar.")
             self.rescan_btn.show()
             if self.state.scan is None:
                 self._start_scan()
             else:
-                self._fill_backup()
+                self._fill_sync()
         else:
-            self.setSubTitle("Was soll wiederhergestellt werden?")
+            self.setSubTitle("Was soll aus dieser Version geholt werden?")
             self.rescan_btn.hide()
             self.busy.hide()
             self.busy_label.hide()
@@ -69,12 +70,16 @@ class CategoriesPage(QWizardPage):
         self.completeChanged.emit()
         self.busy.show()
         self.busy_label.show()
-        self.busy_label.setText("Durchsuche diesen Rechner …")
+        self.busy_label.setText("Durchsuche dieses Gerät …")
         self.rescan_btn.setEnabled(False)
         state = self.state
+        store = state.store
 
-        def job(rep) -> ScanResult:
-            return Scanner(state.mapper, progress=rep.log, cancelled=rep.cancelled).scan(state.catalog)
+        def job(rep):
+            rep.log("Lese aktuellen Stand des Speichers …")
+            remote = store.load_head() if store else None
+            scan = Scanner(state.mapper, progress=rep.log, cancelled=rep.cancelled).scan(state.catalog)
+            return scan, remote
 
         self._worker = Worker(job, self)
         self._worker.log.connect(self.busy_label.setText)
@@ -82,18 +87,19 @@ class CategoriesPage(QWizardPage):
         self._worker.failed.connect(lambda msg: self.busy_label.setText(f"⚠ Fehler beim Durchsuchen: {msg}"))
         self._worker.start()
 
-    def _scan_done(self, result: ScanResult) -> None:
-        self.state.scan = result
+    def _scan_done(self, result) -> None:
+        self.state.scan, self.state.remote = result
         self.state.selected = None
+        self.state.plan = None
         self.busy.hide()
         self.busy_label.hide()
         self.rescan_btn.setEnabled(True)
-        self._fill_backup()
+        self._fill_sync()
 
     # ------------------------------------------------------------------ füllen
-    def _add(self, cid: str, name: str, desc: str, count: int, size: int, enabled: bool,
+    def _add(self, cid: str, name: str, desc: str, counts: str, enabled: bool,
              checked: bool, tags: list[str], reason: str = "") -> None:
-        text = f"{name}   —   {count} Dateien · {human_size(size)}"
+        text = f"{name}   —   {counts}"
         if tags:
             text += "   [" + ", ".join(tags) + "]"
         if reason:
@@ -109,25 +115,44 @@ class CategoriesPage(QWizardPage):
         it.setCheckState(Qt.CheckState.Checked if checked and enabled else Qt.CheckState.Unchecked)
         self.list.addItem(it)
 
-    def _previous(self, cid: str, default: bool) -> bool:
-        return cid in self.state.categories if self.state.categories else default
+    def _previous(self, cid: str, default: bool, remembered: list[str] | None = None) -> bool:
+        if self.state.categories:
+            return cid in self.state.categories
+        if remembered is not None:
+            return cid in remembered
+        return default
 
-    def _fill_backup(self) -> None:
+    @staticmethod
+    def _totals(entries) -> dict[str, tuple[int, int]]:
+        out: dict[str, tuple[int, int]] = {}
+        for e in entries:
+            n, s = out.get(e.category, (0, 0))
+            out[e.category] = (n + 1, s + e.size)
+        return out
+
+    def _fill_sync(self) -> None:
         self.list.blockSignals(True)
         self.list.clear()
         scan = self.state.scan
-        totals = scan.totals() if scan else {}
+        here = scan.totals() if scan else {}
+        there = self._totals(self.state.remote_entries())
+        remembered = self.state.profile.sync_categories
         for c in self.state.catalog.categories:
-            n, s = totals.get(c.id, (0, 0))
+            n, s = here.get(c.id, (0, 0))
+            rn, rs = there.get(c.id, (0, 0))
             tags = []
             if c.sensitive:
                 tags.append("⚠ sensibel")
             if c.requires_admin:
-                tags.append("System")
+                tags.append("nur dieses Gerät")
             if c.cross_os:
-                tags.append("auch für Windows/Linux")
-            self._add(c.id, c.name, c.description, n, s, n > 0, self._previous(c.id, c.default_selected),
-                      tags, "" if n else "nichts gefunden")
+                tags.append("alle Geräte, auch Windows/Linux")
+            counts = f"hier {n} Dateien · {human_size(s)}"
+            if self.state.remote is not None:
+                counts += f"   |   Speicher {rn} · {human_size(rs)}"
+            ok = n > 0 or rn > 0
+            self._add(c.id, c.name, c.description, counts, ok,
+                      self._previous(c.id, c.default_selected, remembered), tags, "" if ok else "nichts gefunden")
         self.list.blockSignals(False)
         if scan and scan.skipped:
             self.skipped_label.setText(f"{len(scan.skipped)} Dateien übersprungen (keine Leserechte, Links …)")
@@ -138,23 +163,23 @@ class CategoriesPage(QWizardPage):
     def _fill_restore(self) -> None:
         self.list.blockSignals(True)
         self.list.clear()
-        m = self.state.manifest
-        assert m is not None
-        totals: dict[str, tuple[int, int]] = {}
-        for e in m.entries:
-            n, s = totals.get(e.category, (0, 0))
-            totals[e.category] = (n + 1, s + e.size)
-        same_os = m.os == self.state.os_name
-        for cid, meta in m.categories.items():
+        rev = self.state.revision
+        assert rev is not None
+        totals = self._totals(self.state.available_entries())
+        src_os = self.state.source_os
+        same_os = src_os == self.state.os_name
+        for cid, meta in rev.categories.items():
             n, s = totals.get(cid, (0, 0))
-            ok = n > 0 and (same_os or bool(meta.get("cross_os")))
-            reason = "" if ok else ("nur auf " + ("Windows" if m.os == "windows" else "Linux"))
+            if n == 0:
+                continue
+            ok = same_os or bool(meta.get("cross_os"))
+            reason = "" if ok else ("nur auf " + ("Windows" if src_os == "windows" else "Linux"))
             tags = ["⚠ sensibel"] if meta.get("sensitive") else []
             if meta.get("requires_admin"):
                 tags.append("in Ablageordner")
             default = not meta.get("requires_admin") and not meta.get("sensitive")
-            self._add(cid, meta.get("name", cid), meta.get("description", ""), n, s, ok,
-                      self._previous(cid, default), tags, reason)
+            self._add(cid, meta.get("name", cid), meta.get("description", ""),
+                      f"{n} Dateien · {human_size(s)}", ok, self._previous(cid, default), tags, reason)
         self.list.blockSignals(False)
         self._ready = True
         self.completeChanged.emit()
@@ -175,7 +200,16 @@ class CategoriesPage(QWizardPage):
         return self._ready and bool(self._checked())
 
     def validatePage(self) -> bool:
-        self.state.categories = self._checked()
+        cats = self._checked()
+        if cats != self.state.categories:
+            self.state.plan = None
+        self.state.categories = cats
+        if self.state.mode == Mode.SYNC and self.state.profile.sync_categories != cats:
+            self.state.profile.sync_categories = cats
+            try:
+                self.state.profile.save()
+            except OSError:
+                pass
         return True
 
     def cleanupPage(self) -> None:

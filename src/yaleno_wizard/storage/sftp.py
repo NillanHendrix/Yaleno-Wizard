@@ -191,6 +191,17 @@ class SFTPStorage(Storage):
         fh.set_pipelined(True)
         return fh  # type: ignore[return-value]
 
+    def create_exclusive(self, path: str, data: bytes) -> None:
+        try:
+            fh = self._sftp.open(path, "wxb")
+        except IOError as exc:
+            # SFTP meldet bei O_EXCL nur "Failure" – daher nachsehen, ob die Datei existiert.
+            if self.exists(path):
+                raise FileExistsError(path) from exc
+            raise
+        with fh:
+            fh.write(data)
+
     def rename(self, src: str, dst: str) -> None:
         try:
             self._sftp.posix_rename(src, dst)

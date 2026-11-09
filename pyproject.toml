@@ -5,17 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "yaleno-wizard"
 version = "0.1.0"
-description = "Yaleno Wizard – Sichern und Wiederherstellen von Konfiguration, Einstellungen und persönlichen Dateien über SFTP"
+description = "Yaleno Wizard – persönliche Dateien, Konfiguration und Einstellungen über einen zentralen Speicher (SFTP, Nextcloud/WebDAV) zwischen Geräten abgleichen, mit Versionsverlauf"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "PySide6>=6.6",
     "paramiko>=3.4",
     "platformdirs>=4.0",
+    "requests>=2.31",
+    "PyYAML>=6.0",
+    "keyring>=24",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pyinstaller>=6"]
+dev = ["pytest>=8", "pyinstaller>=6", "wsgidav>=4.3", "cheroot>=10"]
 
 [project.scripts]
 yaleno-wizard = "yaleno_wizard.__main__:main"

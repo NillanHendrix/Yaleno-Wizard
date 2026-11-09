@@ -8,13 +8,13 @@ from .. import APP_NAME, __version__
 from .pages.categories import CategoriesPage
 from .pages.connection import ConnectionPage
 from .pages.files import FilesPage
+from .pages.history import HistoryPage
 from .pages.mode import ModePage
 from .pages.progress import ProgressPage
-from .pages.snapshot import SnapshotPage
 from .pages.summary import SummaryPage
-from .state import Mode, WizardState
+from .state import HistoryAction, Mode, WizardState
 
-P_CONNECTION, P_MODE, P_SNAPSHOT, P_CATEGORIES, P_FILES, P_SUMMARY, P_PROGRESS = range(7)
+P_CONNECTION, P_MODE, P_HISTORY, P_CATEGORIES, P_FILES, P_SUMMARY, P_PROGRESS = range(7)
 
 
 class YalenoWizard(QWizard):
@@ -38,7 +38,7 @@ class YalenoWizard(QWizard):
         self.progress = ProgressPage(s, self.summary)
         self.setPage(P_CONNECTION, ConnectionPage(s))
         self.setPage(P_MODE, ModePage(s))
-        self.setPage(P_SNAPSHOT, SnapshotPage(s))
+        self.setPage(P_HISTORY, HistoryPage(s))
         self.setPage(P_CATEGORIES, CategoriesPage(s))
         self.setPage(P_FILES, FilesPage(s))
         self.setPage(P_SUMMARY, self.summary)
@@ -52,9 +52,9 @@ class YalenoWizard(QWizard):
     def nextId(self) -> int:
         cur = self.currentId()
         if cur == P_MODE:
-            return P_CATEGORIES if self.state.mode == Mode.BACKUP else P_SNAPSHOT
-        if cur == P_SNAPSHOT:
-            return P_CATEGORIES
+            return P_CATEGORIES if self.state.mode == Mode.SYNC else P_HISTORY
+        if cur == P_HISTORY:
+            return P_SUMMARY if self.state.history_action == HistoryAction.RESET else P_CATEGORIES
         if cur == P_PROGRESS:
             return -1
         return super().nextId()
@@ -68,10 +68,8 @@ class YalenoWizard(QWizard):
     def _restart(self) -> None:
         if self.progress.running:
             return
-        # Verbindung bleibt bestehen; nach dem Neustart wird neu durchsucht.
-        self.state.scan = None
-        self.state.selected = None
-        self.state.categories = []
+        # Verbindung bleibt bestehen; nach dem Neustart wird neu durchsucht und neu gelesen.
+        self.state.reset_run()
         self.restart()
         if self.state.storage is not None:
             self.next()  # Verbindungsseite überspringen

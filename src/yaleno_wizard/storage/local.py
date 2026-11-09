@@ -38,6 +38,10 @@ class LocalStorage(Storage):
     def open_write(self, path: str) -> BinaryIO:
         return open(self._p(path), "wb")
 
+    def create_exclusive(self, path: str, data: bytes) -> None:
+        with open(self._p(path), "xb") as fh:
+            fh.write(data)
+
     def rename(self, src: str, dst: str) -> None:
         os.replace(self._p(src), self._p(dst))
 

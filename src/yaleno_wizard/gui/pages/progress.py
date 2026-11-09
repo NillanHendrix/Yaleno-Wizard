@@ -9,11 +9,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar, QPushButton, QVBoxLayout, QWizardPage,
 )
 
-from ...core.backup import BackupResult, run_backup
 from ...core.entry import human_size
 from ...core.restore import ActionKind, RestoreResult, run_restore
+from ...core.store import Revision
+from ...core.sync import SyncResult, plan_sync, run_sync
 from ...settings import log_dir
-from ..state import Mode, WizardState
+from ..state import WizardState
 from ..worker import Worker
 from .summary import SummaryPage
 
@@ -69,23 +70,43 @@ class ProgressPage(QWizardPage):
         self.bar.setValue(0)
         self.cancel_btn.setEnabled(True)
         s = self.state
-        storage = s.storage
-        assert storage is not None
-        entries = s.selected_entries()
+        store = s.store
+        assert store is not None
+        kind = self.summary.kind
 
-        if s.mode == Mode.BACKUP:
-            self.setTitle("Sicherung läuft …")
+        if kind == "sync":
+            self.setTitle("Abgleich läuft …")
+            winner, dry = self.summary.sync_options()
+            plan, st = s.plan, s.sync_state
+            assert plan is not None and st is not None
+            entries, cats, selected = s.scan.entries if s.scan else [], set(s.categories), s.selected
 
             def job(rep):
-                return run_backup(storage, s.base_path, s.host_name, s.os_name, s.catalog, entries, rep)
+                def replan():
+                    return plan_sync(store, entries, st, s.catalog, s.mapper, s.os_name, s.host_name,
+                                     cats, selected, reporter=rep)
+                return run_sync(store, plan, st, s.catalog, s.mapper, s.os_name, s.host_name, winner, rep,
+                                dry_run=dry, replan=replan)
+        elif kind == "reset":
+            self.setTitle("Speicher wird zurückgesetzt …")
+            rev = s.revision
+            assert rev is not None
+
+            def job(rep):
+                with store.locked(s.host_name):
+                    rep.log(f"Setze Speicher auf Version {rev.number} …")
+                    new = store.revert_to(rev.number, s.host_name, s.os_name)
+                    rep.log(f"Neue Version {new.number}: {new.info.message}")
+                    return new
         else:
             self.setTitle("Wiederherstellung läuft …")
             policy, dry = self.summary.options()
             actions = self.summary.actions
-            snap, manifest = s.snapshot, s.manifest
+            rev = s.revision
+            assert rev is not None
 
             def job(rep):
-                return run_restore(storage, snap.path, manifest, actions, s.catalog, policy, rep, dry_run=dry)
+                return run_restore(store, rev, actions, s.catalog, policy, rep, dry_run=dry)
 
         self.worker = Worker(job, self)
         self.worker.progress.connect(self._progress)
@@ -101,10 +122,12 @@ class ProgressPage(QWizardPage):
     def _finish_common(self) -> None:
         self._done = True
         self.cancel_btn.setEnabled(False)
+        # Nach einer Aktion ist der Stand veraltet – bei „Neue Aktion“ wird neu gelesen.
+        self.state.plan = None
         try:
             d = log_dir()
             d.mkdir(parents=True, exist_ok=True)
-            f = d / f"{self.state.mode.value}-{datetime.now():%Y-%m-%d_%H%M%S}.log"
+            f = d / f"{self.summary.kind}-{datetime.now():%Y-%m-%d_%H%M%S}.log"
             f.write_text(self.log.toPlainText(), encoding="utf-8")
             self.log.appendPlainText(f"\nLog gespeichert: {f}")
         except OSError:
@@ -113,14 +136,19 @@ class ProgressPage(QWizardPage):
 
     def _finished(self, res) -> None:
         self.bar.setValue(1000)
-        if isinstance(res, BackupResult):
-            if res.ok:
-                self.setTitle("Sicherung abgeschlossen")
-                msg = f"✔ Gesichert nach {res.snapshot_path}"
-            else:
-                self.setTitle("Sicherung abgebrochen")
-                msg = "Die Sicherung wurde abgebrochen und ist nicht gültig."
+        fails: list = []
+        if isinstance(res, SyncResult):
+            self.setTitle("Abgleich abgebrochen" if res.cancelled else "Abgleich abgeschlossen")
+            msg = (f"✔ {res.uploaded} hochgeladen, {res.downloaded} heruntergeladen, "
+                   f"{res.deleted_remote + res.deleted_local} gelöscht, {res.conflicts} Konflikte"
+                   f" · Speicher-Version {res.revision}")
+            if res.cancelled:
+                msg = "Abgebrochen – erledigte Änderungen wurden übernommen, der Rest folgt beim nächsten Abgleich."
             fails = res.failed
+        elif isinstance(res, Revision):
+            self.setTitle("Speicher zurückgesetzt")
+            msg = (f"✔ Aktueller Stand ist jetzt Version {res.number} ({res.info.message}). "
+                   "Die Geräte übernehmen ihn beim nächsten Abgleich.")
         else:
             assert isinstance(res, RestoreResult)
             self.setTitle("Wiederherstellung abgebrochen" if res.cancelled else "Wiederherstellung abgeschlossen")
