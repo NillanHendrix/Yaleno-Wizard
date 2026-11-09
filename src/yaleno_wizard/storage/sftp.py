@@ -214,6 +214,9 @@ class SFTPStorage(Storage):
     def remove(self, path: str) -> None:
         self._sftp.remove(path)
 
+    def rmdir(self, path: str) -> None:
+        self._sftp.rmdir(path)
+
     def chmod(self, path: str, mode: int) -> None:
         try:
             self._sftp.chmod(path, mode)

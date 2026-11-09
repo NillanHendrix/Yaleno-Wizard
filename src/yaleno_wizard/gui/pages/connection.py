@@ -362,6 +362,19 @@ class ConnectionPage(QWizardPage):
             return False
         QApplication.restoreOverrideCursor()
 
+        if store.encrypted:
+            from ..unlock_dialog import unlock_store
+            try:
+                ok = unlock_store(self, store)
+            except (StorageError, OSError) as exc:
+                self.status.setText(f"⚠ {exc}")
+                ok = False
+            if not ok:
+                storage.close()
+                if not self.status.text().startswith("⚠"):
+                    self.status.setText("⚠ Der Speicher ist verschlüsselt und wurde nicht entsperrt.")
+                return False
+
         self.state.storage = storage
         self.state.storage_key = key
         self.state.base_path = base
@@ -369,6 +382,8 @@ class ConnectionPage(QWizardPage):
         self.state.reset_run()
         msg = f"✔ Verbunden mit {storage.description}. " + (
             f"Aktueller Stand: Version {head}" if head else "Noch leer – der erste Abgleich legt den Speicher an.")
+        if store.encrypted:
+            msg += " 🔐 verschlüsselt."
 
         # Einstellungen + Anmeldedaten dauerhaft speichern
         if prof.storage_type != "local":

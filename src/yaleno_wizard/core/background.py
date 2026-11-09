@@ -53,6 +53,23 @@ def risky_deletions(plan: SyncPlan) -> str | None:
     return None
 
 
+def unlock_from_cache(store: Store) -> None:
+    """Entsperrt einen verschlüsselten Speicher mit dem auf diesem Gerät gemerkten Schlüssel."""
+    if not store.encrypted:
+        return
+    from ..credentials import load_store_key
+    from .crypto import WrongKey
+    key = load_store_key(store.id)
+    if key is None:
+        raise BackgroundError("Der Speicher ist verschlüsselt und auf diesem Gerät nicht entsperrt – bitte im "
+                              "Wizard verbinden, entsperren und „auf diesem Gerät merken“ anhaken.")
+    try:
+        store.unlock(key)
+    except WrongKey as exc:
+        raise BackgroundError("Der gemerkte Schlüssel passt nicht mehr zum Speicher – bitte im Wizard "
+                              "neu entsperren.") from exc
+
+
 @dataclass
 class BackgroundOutcome:
     result: SyncResult
@@ -81,6 +98,7 @@ def sync_once(
     storage, base = open_storage(profile, secret if secret is not None else load_secret(profile))
     try:
         store = Store(storage, base)
+        unlock_from_cache(store)
         rep.log(f"Hintergrund-Abgleich von {host} mit {storage.description}")
         local = Scanner(mapper, cancelled=rep.cancelled).scan(catalog, cats).entries
         remote = store.load_head()

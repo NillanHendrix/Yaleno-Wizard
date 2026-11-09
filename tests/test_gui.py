@@ -359,3 +359,41 @@ def test_tray_plugin_update_hint(app, tmp_path):
     bg.check_plugin_updates()
     _wait(lambda: bg.plugin_updates)
     assert bg.plugin_updates[0].id == "demo"
+
+
+def test_encryption_and_unlock_dialogs(app, tmp_path, monkeypatch):
+    from yaleno_wizard.core import crypto
+    from yaleno_wizard.core.store import Store
+    from yaleno_wizard.credentials import delete_store_key, load_store_key
+    from yaleno_wizard.gui import encryption_dialog as ed
+    from yaleno_wizard.gui.unlock_dialog import UnlockDialog, unlock_store
+    from yaleno_wizard.storage.local import LocalStorage
+
+    monkeypatch.setattr(crypto, "SCRYPT_N", 2 ** 10)
+    codes = []
+    monkeypatch.setattr(ed, "ask_new_password", lambda *a: "geheimes-passwort")
+    monkeypatch.setattr(ed, "show_recovery_code", lambda parent, code: codes.append(code))
+    storage = LocalStorage(tmp_path / "server")
+    store = Store(storage, ".")
+    store.ensure_initialized()
+    dlg = ed.EncryptionDialog(store, "pc")
+    assert dlg.btn_enable.isVisible() or not dlg.isVisible()
+    dlg._enable()
+    _wait(lambda: codes)
+    _wait(lambda: not dlg.worker.isRunning())
+    assert store.encrypted and dlg.slots.count() == 2
+    assert load_store_key(store.id) is not None
+    dlg.close()
+
+    other = Store(storage, ".")
+    assert unlock_store(None, other)  # gemerkter Schlüssel
+    delete_store_key(store.id)
+    fresh = Store(storage, ".")
+    ud = UnlockDialog(fresh)
+    ud.secret.setText("falsches-passwort")
+    ud._try()
+    assert "Falsches Passwort" in ud.error.text() and not fresh.unlocked
+    ud.rb_rec.setChecked(True)
+    ud.secret.setText(codes[0])
+    ud._try()
+    assert fresh.unlocked and load_store_key(store.id) is not None

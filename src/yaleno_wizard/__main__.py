@@ -7,6 +7,7 @@
     yaleno-wizard --install          ins Startmenü eintragen (Linux; Windows nutzt den Installer)
     yaleno-wizard --uninstall        Eintrag wieder entfernen
     yaleno-wizard plugin …           Plugins verwalten (list, install, update … – siehe plugin --help)
+    yaleno-wizard encryption …       Verschlüsselung (status, enable, unlock … – siehe encryption --help)
 """
 
 from __future__ import annotations
@@ -20,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv[:1] == ["plugin"]:
         from yaleno_wizard.plugins.cli import main as plugin_main
         return plugin_main(argv[1:])
+    if argv[:1] == ["encryption"]:
+        from yaleno_wizard.encryption_cli import main as encryption_main
+        return encryption_main(argv[1:])
 
     parser = argparse.ArgumentParser(prog="yaleno-wizard", description="Geräte über einen zentralen Speicher abgleichen.")
     parser.add_argument("--version", action="store_true", help="Version anzeigen")

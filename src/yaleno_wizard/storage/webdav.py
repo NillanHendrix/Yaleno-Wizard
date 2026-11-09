@@ -269,6 +269,14 @@ class WebDAVStorage(Storage):
         if resp.status_code not in (201, 204):
             raise _err(resp, f"Verschieben {src} → {dst}")
 
+    def rmdir(self, path: str) -> None:
+        resp = self._request("DELETE", path, what=path, collection=True)
+        if resp.status_code not in (200, 204, 404):
+            raise _err(resp, f"Löschen {path}")
+
+    def remove_tree(self, path: str) -> None:
+        self.rmdir(path)  # WebDAV löscht Ordner samt Inhalt
+
     def remove(self, path: str) -> None:
         resp = self._request("DELETE", path, what=path)
         if resp.status_code == 404:

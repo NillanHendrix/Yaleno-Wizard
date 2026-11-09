@@ -66,11 +66,42 @@ class ModePage(QWizardPage):
         row.addWidget(self.plugin_btn)
         row.addWidget(self.plugin_label, 1)
         lay.addLayout(row)
+        self.enc_btn = QPushButton("Verschlüsselung …")
+        self.enc_btn.setToolTip("Speicher Ende-zu-Ende verschlüsseln und Schlüssel verwalten.")
+        self.enc_btn.clicked.connect(self._encryption)
+        self.enc_label = QLabel()
+        self.enc_label.setStyleSheet("color: gray")
+        row = QHBoxLayout()
+        row.addWidget(self.enc_btn)
+        row.addWidget(self.enc_label, 1)
+        lay.addLayout(row)
 
     def _plugins(self) -> None:
         from ..plugin_dialog import open_plugin_dialog
         open_plugin_dialog(self, self.state)
         self._update_plugin_label()
+        self._update_enc()
+
+    def _encryption(self) -> None:
+        from ..encryption_dialog import EncryptionDialog
+        if self.state.store is None:
+            return
+        host = sanitize_host(self.name.text() or self.state.host_name)
+        EncryptionDialog(self.state.store, host, self).exec()
+        self.state.reset_run()
+        self._update_enc()
+
+    def _update_enc(self) -> None:
+        from ...plugins.registry import feature_enabled
+        store = self.state.store
+        try:
+            enc = bool(store and store.encrypted)
+        except Exception:
+            enc = False
+        show = enc or feature_enabled("encryption", self.state.profile)
+        self.enc_btn.setVisible(show and store is not None)
+        self.enc_label.setVisible(show and store is not None)
+        self.enc_label.setText("🔐 verschlüsselt" if enc else "nicht verschlüsselt")
 
     def _update_plugin_label(self) -> None:
         from ..plugin_dialog import plugin_summary
@@ -110,6 +141,7 @@ class ModePage(QWizardPage):
     def initializePage(self) -> None:
         self._update_bg_label()
         self._update_plugin_label()
+        self._update_enc()
         store = self.state.store
         head = 0
         try:

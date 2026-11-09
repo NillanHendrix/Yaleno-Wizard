@@ -48,6 +48,9 @@ class LocalStorage(Storage):
     def remove(self, path: str) -> None:
         self._p(path).unlink()
 
+    def rmdir(self, path: str) -> None:
+        self._p(path).rmdir()
+
     def chmod(self, path: str, mode: int) -> None:
         try:
             os.chmod(self._p(path), mode)

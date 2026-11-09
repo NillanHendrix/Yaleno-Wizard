@@ -49,6 +49,22 @@ class Storage(ABC):
     def create_exclusive(self, path: str, data: bytes) -> None:
         """Legt eine Datei an; FileExistsError, falls sie schon existiert (für Sperren)."""
 
+    def rmdir(self, path: str) -> None:
+        """Entfernt einen leeren Ordner."""
+        raise NotImplementedError
+
+    def remove_tree(self, path: str) -> None:
+        """Entfernt einen Ordner mit Inhalt (fehlt er, passiert nichts)."""
+        if not self.is_dir(path):
+            return
+        for name in self.listdir(path):
+            child = path.rstrip("/") + "/" + name
+            if self.is_dir(child):
+                self.remove_tree(child)
+            else:
+                self.remove(child)
+        self.rmdir(path)
+
     def chmod(self, path: str, mode: int) -> None:  # optional
         pass
 
