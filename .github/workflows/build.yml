@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ubuntu-Abhängigkeiten für Qt (offscreen-Tests)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - run: pyinstaller --noconfirm --clean yaleno_wizard.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yaleno-wizard-${{ runner.os }}
+          path: dist/*
