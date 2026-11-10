@@ -476,7 +476,7 @@ gesperrt (`lock`).
 | 💲 Shell & Terminal | Bash, Zsh, Fish, Starship, tmux, Terminal-Emulatoren | PowerShell-Profile, Windows Terminal, Git-Bash |
 | 🔑 SSH- & GPG-Schlüssel ⚠️ | `~/.ssh`, `~/.gnupg`, Schlüsselbund | `.ssh`, GnuPG |
 | 🧑‍💻 Git & Entwicklung | Git, VS Code, (Neo)Vim, npm/cargo/pip-Konfig | Git, VS Code, (Neo)Vim |
-| 🎨 Desktop-Umgebung | KDE Plasma, GNOME (`dconf dump`), GTK, Autostart, Schriften | Registry-Exporte (Systemsteuerung, Tastatur, Explorer, Umgebung), Schriften, Startmenü |
+| 🎨 Desktop-Umgebung | KDE Plasma, GNOME (`dconf dump`), Hyprland (+ Waybar, Rofi, Mako …), GTK, Autostart, Schriften | Registry-Exporte (Systemsteuerung, Tastatur, Explorer, Umgebung), Schriften, Startmenü |
 | 🌐 Browser & E-Mail ⚠️ | Firefox, Zen, LibreWolf, Floorp, Chromium, Chrome, Brave, Vivaldi, Thunderbird | Firefox, Zen, Chrome, Edge, Brave, Thunderbird |
 | 📦 Installierte Programme | Paketlisten: pacman, AUR, apt, dnf, Flatpak, Snap | `winget export` |
 | ⚙️ Systemkonfiguration | ausgewählte Dateien aus `/etc` | – |

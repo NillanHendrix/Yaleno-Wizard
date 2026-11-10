@@ -8,6 +8,8 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
 ### Hinzugefügt
 
+- 💠 **Hyprland** in *Desktop-Umgebung*: `~/.config/hypr` und `uwsm`, dazu Wayland-Werkzeuge
+  (Waybar, Rofi, Wofi, Fuzzel, Walker, Mako, Dunst, SwayNC, wlogout, kanshi).
 - 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers (AES-256-GCM, auch Dateinamen und Verlauf),
   Passwort + Wiederherstellungsschlüssel, absturzsichere Umstellung, `yaleno-wizard encryption …`.
 - 🔑 **Security-Keys/Passkeys (FIDO2)** zum Entsperren des Speichers und für die App-Sperre.

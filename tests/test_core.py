@@ -46,6 +46,8 @@ def test_scan_categories_and_excludes(mapper):
     assert ("shell", "{CONFIG}/fish/config.fish") in logicals
     assert ("keys", "{HOME}/.ssh/id_ed25519") in logicals
     assert ("desktop", "{CONFIG}/kwinrc") in logicals
+    assert ("desktop", "{CONFIG}/hypr/hyprland.lua") in logicals
+    assert ("desktop", "{CONFIG}/waybar/config.jsonc") in logicals
     assert ("system", "{ROOT}/etc/fstab") in logicals
     assert ("apps", "{CONFIG}/someapp/settings.ini") in logicals
     # Excludes
@@ -54,6 +56,7 @@ def test_scan_categories_and_excludes(mapper):
     # Dedup: fish/kde gehören nicht zusätzlich zu "apps"
     assert ("apps", "{CONFIG}/fish/config.fish") not in logicals
     assert ("apps", "{CONFIG}/kwinrc") not in logicals
+    assert ("apps", "{CONFIG}/hypr/hyprland.lua") not in logicals
 
 
 def test_scan_subset(mapper):

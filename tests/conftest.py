@@ -77,6 +77,8 @@ def build_home(tmp_path: Path, name: str = "home", files: bool = True) -> dict[s
     w(m["CONFIG"] / "fish" / "config.fish", "set -g x 1")
     w(m["CONFIG"] / "kdeglobals", "[General]")
     w(m["CONFIG"] / "kwinrc", "[Windows]")
+    w(m["CONFIG"] / "hypr" / "hyprland.lua", "-- Hyprland")
+    w(m["CONFIG"] / "waybar" / "config.jsonc", "{}")
     w(m["CONFIG"] / "someapp" / "settings.ini", "a=1")
     w(m["CONFIG"] / "someapp" / "Cache" / "blob", "cache")
     w(m["ROOT"] / "etc" / "fstab", "UUID=1 / ext4")

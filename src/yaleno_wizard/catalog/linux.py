@@ -96,8 +96,8 @@ def build() -> Catalog:
         Category(
             id="desktop",
             name="Desktop-Umgebung",
-            description="KDE Plasma, GNOME (dconf), GTK-Themes, Autostart, Standardanwendungen "
-            "und Schriftarten.",
+            description="KDE Plasma, GNOME (dconf), Hyprland, GTK-Themes, Autostart, "
+            "Standardanwendungen und Schriftarten.",
             os="linux",
             items=(
                 Item("kde", "KDE Plasma", paths=(
@@ -105,6 +105,11 @@ def build() -> Catalog:
                     "{CONFIG}/kglobalshortcutsrc", "{CONFIG}/kwinrulesrc", "{CONFIG}/powermanagementprofilesrc",
                     "{DATA}/plasma", "{DATA}/color-schemes", "{DATA}/aurorae", "{DATA}/kxmlgui5",
                 ), excludes=("plasmashellrc.lock",)),
+                Item("hyprland", "Hyprland (hypr, uwsm)", paths=("{CONFIG}/hypr", "{CONFIG}/uwsm")),
+                Item("wayland-tools", "Wayland-Werkzeuge (Leiste, Starter, Benachrichtigungen)", paths=(
+                    "{CONFIG}/waybar", "{CONFIG}/rofi", "{CONFIG}/wofi", "{CONFIG}/fuzzel", "{CONFIG}/walker",
+                    "{CONFIG}/mako", "{CONFIG}/dunst", "{CONFIG}/swaync", "{CONFIG}/wlogout", "{CONFIG}/kanshi",
+                )),
                 Item("dconf", "GNOME / GTK-Einstellungen (dconf)", kind="command",
                      backup_cmd=("dconf", "dump", "/"), restore_cmd=("dconf", "load", "/"),
                      output_ext="ini"),
