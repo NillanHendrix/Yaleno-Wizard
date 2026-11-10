@@ -60,7 +60,6 @@ class Category:
     # Niedriger Wert = Dateien werden zuerst dieser Kategorie zugeordnet.
     claim_priority: int = 0
     default_selected: bool = True
-    plugin: str = ""  # ID des Plugins, aus dem die Kategorie stammt
 
     def item(self, item_id: str) -> Item | None:
         for it in self.items:
@@ -75,7 +74,6 @@ class Category:
             "cross_os": self.cross_os,
             "sensitive": self.sensitive,
             "requires_admin": self.requires_admin,
-            **({"plugin": self.plugin} if self.plugin else {}),
         }
 
 
@@ -83,8 +81,6 @@ class Category:
 class Catalog:
     os: OSName
     categories: list[Category] = field(default_factory=list)
-    plugins: list[str] = field(default_factory=list)        # IDs der eingebauten Plugins
-    plugin_errors: list[str] = field(default_factory=list)  # übersprungene Plugins mit Grund
 
     def get(self, cat_id: str) -> Category | None:
         for c in self.categories:

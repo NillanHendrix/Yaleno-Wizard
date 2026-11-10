@@ -145,8 +145,6 @@ class EncryptionDialog(QDialog):
         self.btn_enable.setEnabled(not busy)
         for b in (self.btn_pw, self.btn_rec, self.btn_key, self.btn_remove):
             b.setEnabled(enc and self.store.unlocked and not busy)
-        from ..plugins.registry import feature_enabled
-        self.btn_key.setVisible(feature_enabled("fido2"))
         self.slots.clear()
         info = self.store.encryption if enc else None
         if info:

@@ -55,17 +55,6 @@ class ModePage(QWizardPage):
         row.addWidget(self.bg_btn)
         row.addWidget(self.bg_label, 1)
         lay.addLayout(row)
-        self.plugin_btn = QPushButton("Plugins …")
-        self.plugin_btn.setToolTip("Weitere Programme abgleichen (z. B. Prism Launcher) und Funktionen wie "
-                                   "Verschlüsselung freischalten.")
-        self.plugin_btn.clicked.connect(self._plugins)
-        self.plugin_label = QLabel()
-        self.plugin_label.setStyleSheet("color: gray")
-        self.plugin_label.setWordWrap(True)
-        row = QHBoxLayout()
-        row.addWidget(self.plugin_btn)
-        row.addWidget(self.plugin_label, 1)
-        lay.addLayout(row)
         self.enc_btn = QPushButton("Verschlüsselung …")
         self.enc_btn.setToolTip("Speicher Ende-zu-Ende verschlüsseln und Schlüssel verwalten.")
         self.enc_btn.clicked.connect(self._encryption)
@@ -75,12 +64,6 @@ class ModePage(QWizardPage):
         row.addWidget(self.enc_btn)
         row.addWidget(self.enc_label, 1)
         lay.addLayout(row)
-
-    def _plugins(self) -> None:
-        from ..plugin_dialog import open_plugin_dialog
-        open_plugin_dialog(self, self.state)
-        self._update_plugin_label()
-        self._update_enc()
 
     def _encryption(self) -> None:
         from ..encryption_dialog import EncryptionDialog
@@ -92,20 +75,14 @@ class ModePage(QWizardPage):
         self._update_enc()
 
     def _update_enc(self) -> None:
-        from ...plugins.registry import feature_enabled
         store = self.state.store
         try:
             enc = bool(store and store.encrypted)
         except Exception:
             enc = False
-        show = enc or feature_enabled("encryption", self.state.profile)
-        self.enc_btn.setVisible(show and store is not None)
-        self.enc_label.setVisible(show and store is not None)
+        self.enc_btn.setVisible(store is not None)
+        self.enc_label.setVisible(store is not None)
         self.enc_label.setText("🔐 verschlüsselt" if enc else "nicht verschlüsselt")
-
-    def _update_plugin_label(self) -> None:
-        from ..plugin_dialog import plugin_summary
-        self.plugin_label.setText(plugin_summary(self.state))
 
     def _update_bg_label(self) -> None:
         p = self.state.profile
@@ -140,7 +117,6 @@ class ModePage(QWizardPage):
 
     def initializePage(self) -> None:
         self._update_bg_label()
-        self._update_plugin_label()
         self._update_enc()
         store = self.state.store
         head = 0

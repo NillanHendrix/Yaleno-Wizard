@@ -12,7 +12,7 @@ wählen. Die Datei kann von Hand bearbeitet und auf andere Geräte kopiert werde
         username: niko
         password: xxxxx-xxxxx-xxxxx-xxxxx-xxxxx   # nur bei password_store: file
         folder: Yaleno
-        auth: app_password         # app_password | oidc (Plugin „OIDC“)
+        auth: app_password         # app_password | oidc
         oidc:                      # nur bei auth: oidc
           issuer: https://id.example.org/realms/home
           client_id: yaleno-wizard
@@ -35,9 +35,6 @@ wählen. Die Datei kann von Hand bearbeitet und auf andere Geräte kopiert werde
       enabled: true
       interval_minutes: 15
       autostart: true
-    plugins:
-      enabled: [prismlauncher]     # aktive Plugins (siehe Plugin-Manager)
-      check_updates: true          # Hintergrund-Abgleich sucht täglich nach Updates
 """
 
 from __future__ import annotations
@@ -121,8 +118,6 @@ class Profile:
     bg_enabled: bool = False
     bg_interval: int = 15
     bg_autostart: bool = False
-    plugins_enabled: list[str] = field(default_factory=list)
-    plugins_check_updates: bool = True
     app_lock_enabled: bool = False
     app_lock_password: str = ""   # scrypt-Hash, nie das Passwort selbst
     app_lock_keys: list[dict] = field(default_factory=list)  # [{label, credential}]
@@ -161,10 +156,6 @@ class Profile:
                 "interval_minutes": self.bg_interval,
                 "autostart": self.bg_autostart,
             },
-            "plugins": {
-                "enabled": self.plugins_enabled,
-                "check_updates": self.plugins_check_updates,
-            },
             **({"app_lock": {
                 "enabled": self.app_lock_enabled,
                 "password_hash": self.app_lock_password,
@@ -183,7 +174,7 @@ class Profile:
                 raise ConfigError(f"„{key}“ muss ein Abschnitt sein.")
             return v
 
-        st, sync, bg, pl = sec(d, "storage"), sec(d, "sync"), sec(d, "background"), sec(d, "plugins")
+        st, sync, bg = sec(d, "storage"), sec(d, "sync"), sec(d, "background")
         lock = sec(d, "app_lock")
         lock_keys = lock.get("security_keys") or []
         if not isinstance(lock_keys, list) or not all(isinstance(k, dict) and k.get("credential") for k in lock_keys):
@@ -214,9 +205,6 @@ class Profile:
             raise ConfigError("sync.categories muss eine Liste sein.")
         if not isinstance(excl, dict):
             raise ConfigError("sync.exclude muss ein Abschnitt je Kategorie sein.")
-        enabled = pl.get("enabled") or []
-        if not isinstance(enabled, list):
-            raise ConfigError("plugins.enabled muss eine Liste sein.")
         try:
             port = int(sf.get("port") or 22)
             interval = int(bg.get("interval_minutes") or 15)
@@ -241,8 +229,6 @@ class Profile:
             bg_enabled=bool(bg.get("enabled", False)),
             bg_interval=max(1, interval),
             bg_autostart=bool(bg.get("autostart", False)),
-            plugins_enabled=[str(x) for x in enabled],
-            plugins_check_updates=bool(pl.get("check_updates", True)),
             app_lock_enabled=bool(lock.get("enabled", False)),
             app_lock_password=str(lock.get("password_hash") or ""),
             app_lock_keys=[{"label": str(k.get("label") or "Security-Key"), "credential": str(k["credential"])}

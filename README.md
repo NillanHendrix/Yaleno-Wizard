@@ -14,8 +14,6 @@ unabhängig von einem Gerät. Jedes Gerät gleicht sich mit ihm ab. Frühere St�
 - 🤝 **Konflikte ohne Datenverlust:** die andere Fassung bleibt immer als Kopie erhalten
 - 🌙 **Hintergrund-Abgleich** mit Symbol im Infobereich und Autostart
 - 🔐 **Passwort im Schlüsselbund** des Systems, alle Einstellungen in **einer YAML-Datei**
-- 🧩 **Plugins als YAML-Dateien** – weitere Programme (z. B. 🎮 Prism Launcher) und Funktionen,
-  mit Plugin-Manager, Updates und Verteilung über den Speicher
 - 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers, **App-Sperre**, **Security-Keys/Passkeys**
 - 🪪 **Anmeldung im Browser** bei Nextcloud (auch per Passkey) oder per **OpenID Connect (OIDC)**
 - 🐧🪟 läuft unter **Linux und Windows** – persönliche Dateien auch zwischen beiden
@@ -41,8 +39,7 @@ Danach **Yaleno Wizard** im Startmenü öffnen und der [Anleitung](#speicher-vor
   - [4️⃣ Weitere Geräte hinzufügen](#weitere-geraete)
   - [5️⃣ Hintergrund-Abgleich einschalten](#hintergrund)
   - [6️⃣ Im Verlauf zurückspringen](#verlauf)
-  - [7️⃣ Plugins verwenden](#plugins)
-  - [8️⃣ Verschlüsseln und absichern](#absichern)
+  - [7️⃣ Verschlüsseln und absichern](#absichern)
   - [💡 Häufige Fragen](#faq)
 - [📖 Referenz](#referenz)
 - [🛠️ Entwicklung](#entwicklung)
@@ -258,48 +255,11 @@ Datei versehentlich gelöscht oder überschrieben? Kein Problem. 🛟
      Abgleich. Nichts geht verloren: Das wird als neue Version gespeichert, du kannst jederzeit
      wieder ⏩ vorspringen.
 
-<a id="plugins"></a>
-
-### 7️⃣ Plugins verwenden
-
-Plugins sind **YAML-Dateien** – sie enthalten keinen Programmcode. Sie fügen Kategorien für weitere
-Programme hinzu oder schalten eingebaute Funktionen frei. 🧩
-
-1. Im Wizard auf **„Plugins …“** (Verbindungsseite oder *„Was möchtest du tun?“*).
-2. Mitgelieferte Plugins per Haken **aktivieren**, z. B. **Prism Launcher (Minecraft)** → neue
-   Kategorie 🎮 *Spiele* mit Einstellungen, Konten und Instanzen (Welten, Mods).
-3. Eigene Plugins: **„Aus Datei …“** oder **„Aus URL …“** (nur `https://`). Vor dem Installieren
-   zeigt der Wizard, welche Pfade hinzukommen – und warnt ⚠️, wenn ein Plugin **Befehle** ausführt.
-4. **„Nach Updates suchen“** lädt die Quelle (`source:`) jedes Plugins und bietet neuere Versionen an.
-   Der Hintergrund-Abgleich sucht einmal am Tag selbst und meldet Updates im Infobereich. ⬆️
-
-| Mitgeliefertes Plugin | Was es tut |
-|---|---|
-| 🎮 Prism Launcher (Minecraft) | Kategorie *Spiele*: Einstellungen, Konten, Instanzen (native + Flatpak, Windows) |
-| 🛡️ Verschlüsselung (Ende-zu-Ende) | schaltet „Verschlüsselung …“ frei |
-| 🔒 App-Sperre | schaltet „App-Sperre …“ frei |
-| 🔑 Passkey / Security-Key (FIDO2) | Security-Keys/Passkeys für Speicher und App-Sperre |
-| 🌐 Nextcloud-Anmeldung im Browser | Knopf „Im Browser anmelden …“ (auch per Passkey/2FA) |
-| 🪪 OIDC | Anmeldung über Keycloak, Authentik, Azure AD … |
-
-> 🔄 **Andere Geräte:** Aktive Programm-Plugins legt der Abgleich im Speicher ab. Verbindet sich ein
-> anderes Gerät, fragt der Wizard, ob es sie übernehmen soll – nie automatisch.
-
-Auf der Kommandozeile:
-
-```bash
-yaleno-wizard plugin list                 # alle Plugins mit Status
-yaleno-wizard plugin install meins.yml    # oder https://…/meins.yml
-yaleno-wizard plugin enable prismlauncher
-yaleno-wizard plugin check                # nach Updates suchen
-yaleno-wizard plugin update --all
-```
-
 <a id="absichern"></a>
 
-### 8️⃣ Verschlüsseln und absichern
+### 7️⃣ Verschlüsseln und absichern
 
-**Speicher Ende-zu-Ende verschlüsseln** 🛡️ (Plugin *Verschlüsselung* aktivieren):
+**Speicher Ende-zu-Ende verschlüsseln** 🛡️:
 
 1. Verbinden → *„Was möchtest du tun?“* → **„Verschlüsselung …“** → **„Speicher jetzt verschlüsseln …“**.
 2. Ein **Passwort** festlegen (mind. 8 Zeichen). Alle Inhalte und Versionen werden einmal neu
@@ -312,18 +272,18 @@ yaleno-wizard plugin update --all
 Danach sieht der Server-Betreiber (z. B. deine Nextcloud) nur noch unlesbare Daten – auch Datei-
 und Ordnernamen sind verschlüsselt.
 
-**Security-Key / Passkey** 🔑 (Plugin *Passkey*): Im Dialog *Verschlüsselung* →
+**Security-Key / Passkey** 🔑: Im Dialog *Verschlüsselung* →
 **„Security-Key / Passkey hinzufügen …“**. Danach lässt sich der Speicher auch per Key öffnen
 (der Key muss *hmac-secret/PRF* können, z. B. YubiKey 5, Nitrokey 3, SoloKey 2).
 
-**App-Sperre** 🔒 (Plugin *App-Sperre*): Verbindungsseite → **„App-Sperre …“** → Passwort und/oder
+**App-Sperre** 🔒: Verbindungsseite → **„App-Sperre …“** → Passwort und/oder
 Security-Key einrichten → **aktivieren**. Der Wizard öffnet sich dann erst nach dem Entsperren.
 
-**Anmeldung im Browser** 🌐 (Plugin *Nextcloud-Anmeldung im Browser*): Bei Nextcloud auf
+**Anmeldung im Browser** 🌐: Bei Nextcloud auf
 **„Im Browser anmelden …“** klicken, im Browser anmelden (Passkey, Zwei-Faktor, SSO – alles was
 deine Nextcloud kann) und den Zugriff erlauben. Der Wizard übernimmt das erzeugte App-Passwort.
 
-**OIDC** 🪪 (Plugin *OIDC*): Bei Nextcloud *Anmeldung* → **„OpenID Connect (OIDC)“**, Anbieter
+**OIDC** 🪪: Bei Nextcloud *Anmeldung* → **„OpenID Connect (OIDC)“**, Anbieter
 (Issuer-URL) und Client-ID eintragen → **„Mit OIDC anmelden …“**. Details in der
 [Referenz](#ref-oidc).
 
@@ -440,12 +400,12 @@ Startmenü trotzdem – nur im Terminal muss `~/.local/bin/yaleno-wizard` ausges
 </details>
 
 <details>
-<summary>🧩 Sind Plugins sicher?</summary>
+<summary>🧩 Wo sind die Plugins hin?</summary>
 
-Plugins enthalten keinen Programmcode. Ein Plugin kann aber **Befehle** festlegen, die beim Abgleich
-ausgeführt werden (wie die eingebauten Paketlisten). Der Wizard zeigt solche Befehle vor dem
-Installieren und bei jedem Update, das neue Befehle mitbringt, ausdrücklich an. Nur Plugins aus
-vertrauenswürdigen Quellen installieren.
+Das Plugin-System gibt es nicht mehr. Verschlüsselung, App-Sperre, Security-Keys/Passkeys, die
+Nextcloud-Anmeldung im Browser und OIDC sind jetzt fest eingebaut und ohne Freischalten verfügbar
+(siehe [Verschlüsseln und absichern](#absichern)). Die Kategorie *Spiele* (Prism Launcher) entfällt.
+Ein alter Abschnitt `plugins:` in der `yaleno.yml` wird ignoriert und beim nächsten Speichern entfernt.
 
 </details>
 
@@ -521,7 +481,6 @@ gesperrt (`lock`).
 | 📦 Installierte Programme | Paketlisten: pacman, AUR, apt, dnf, Flatpak, Snap | `winget export` |
 | ⚙️ Systemkonfiguration | ausgewählte Dateien aus `/etc` | – |
 | 🧩 Weitere Anwendungs-Konfiguration | Rest von `~/.config` | Rest von `AppData\Roaming` |
-| 🎮 Spiele *(Plugin Prism Launcher)* | `~/.local/share/PrismLauncher` (auch Flatpak) | `AppData\Roaming\PrismLauncher` |
 
 Caches, `node_modules`, Papierkorb, Lock-Dateien usw. werden automatisch ausgelassen. 🧹
 Definiert sind die Kategorien in `src/yaleno_wizard/catalog/linux.py` und `windows.py`.
@@ -538,7 +497,6 @@ in `~/Dokumente` und unter Windows in `C:\Users\…\Documents` liegen.
     objects/<ab>/<sha256>          Dateiinhalte – jeder Inhalt nur einmal, egal in wie vielen Versionen
     revisions/00000042.json.gz     vollständiger Dateibaum von Version 42 (Pfad, Größe, Zeit, Rechte, SHA-256)
     revisions/00000042.info.json   Datum, Gerät, Änderungen
-    plugins/<id>.yml               Plugins für andere Geräte
 ```
 
 Eine neue Version entsteht nur, wenn sich am Stand im Speicher etwas ändert. HEAD wird erst
@@ -555,7 +513,6 @@ liegt verschlüsselt in eigenen Ordnern:
     eobjects/<ab>/<hmac>           Inhalte, AES-256-GCM; Name = HMAC der Prüfsumme
     erevisions/00000042.json.gz    Dateibaum, verschlüsselt
     erevisions/00000042.info.json  Datum, Gerät, Änderungen – verschlüsselt
-    eplugins/<hmac>.bin            Plugins, verschlüsselt
 ```
 
 ### 📄 Einstellungsdatei (YAML)
@@ -594,17 +551,14 @@ background:
   enabled: true
   interval_minutes: 15
   autostart: true
-plugins:
-  enabled: [prismlauncher, verschluesselung]   # aktive Plugins
-  check_updates: true          # Hintergrund-Abgleich sucht täglich nach Plugin-Updates
-app_lock:                      # nur mit Plugin „App-Sperre“
+app_lock:
   enabled: true
   password_hash: scrypt$…      # nur der Hash, nie das Passwort
   security_keys:
     - {label: YubiKey, credential: …}
 ```
 
-Für Nextcloud mit OIDC statt App-Passwort (Plugin *OIDC*):
+Für Nextcloud mit OIDC statt App-Passwort:
 
 ```yaml
 storage:
@@ -667,54 +621,6 @@ Steht in einer Datei ein `password:`, wird es verwendet – auch ohne `password_
 - Gemerkter Schlüssel: Schlüsselbund, sonst `~/.config/yaleno-wizard/keys/` (nur für dich lesbar).
 - Versionen vor 0.2.0 können verschlüsselte Speicher nicht öffnen (sie melden „neuere Version“).
 
-### 🧩 Plugin-Format
-
-```yaml
-yaleno_plugin: 1                       # Formatversion
-id: helix                              # a–z, 0–9, . - _
-name: Helix-Editor
-version: 1.0.0                         # wird für Updates verglichen
-author: Du
-description: Konfiguration des Helix-Editors.
-source: https://example.org/helix.yml  # optional, nur https – Quelle für Updates
-min_app_version: 0.2.0                 # optional
-type: catalog                          # catalog (Kategorien) | feature (Funktion freischalten)
-
-categories:                            # neue Kategorien
-  - id: editors
-    name: Editoren
-    description: Weitere Editoren.
-    os: [linux, windows]               # Standard: beide
-    sensitive: false                   # ⚠ markieren
-    cross_os: false                    # true = auch zwischen Linux und Windows
-    default_selected: true
-    items:
-      - id: helix
-        label: Helix
-        paths:                         # Liste für alle OS oder je OS
-          linux: ["{CONFIG}/helix"]
-          windows: ["{APPDATA}/helix"]
-        excludes: ["*.log", runtime]   # Namen oder Pfadmuster
-
-extend:                                # bestehende Kategorien erweitern
-  dev:
-    items:
-      - id: zed
-        label: Zed
-        paths: ["{CONFIG}/zed"]
-    excludes:
-      vscode: ["*.vsix"]               # Ausschlüsse an vorhandenem Eintrag ergänzen
-```
-
-- Pfade beginnen immer mit einem Platzhalter: `{HOME}`, `{CONFIG}`, `{DATA}`, `{APPDATA}`,
-  `{LOCALAPPDATA}`, `{DOCUMENTS}`, `{PICTURES}`, `{MUSIC}`, `{VIDEOS}`, `{DESKTOP}`, `{DOWNLOADS}`, `{ROOT}`.
-- **Befehle** (`kind: command`) wie bei den Paketlisten: `backup_cmd: [pipx, list, --short]`,
-  optional `restore_cmd`, `output_ext`; `{OUT}`/`{IN}` für Dateien statt stdout/stdin.
-- Feature-Plugins: `type: feature` und `feature:` eines von `encryption`, `app_lock`, `fido2`,
-  `nextcloud_login_flow`, `oidc`.
-- Installierte Plugins: `~/.config/yaleno-wizard/plugins/` (Windows: `%APPDATA%\yaleno-wizard\plugins`).
-  Eine fehlerhafte Datei wird mit Grund angezeigt und übersprungen – sie legt nie das Programm lahm.
-
 ### 🌙 Hintergrund-Abgleich und Kommandozeile
 
 ```bash
@@ -725,7 +631,6 @@ yaleno-wizard --sync              # einmal abgleichen ohne Oberfläche, z. B. pe
 yaleno-wizard --config datei.yml  # andere Einstellungsdatei verwenden
 yaleno-wizard --install           # 🧙 ins Startmenü eintragen (mit Logo)
 yaleno-wizard --uninstall         # Eintrag und Programm entfernen
-yaleno-wizard plugin …            # Plugins: list, show, install, remove, enable, disable, check, update
 yaleno-wizard encryption …        # Verschlüsselung: status, enable, unlock, forget, add-password,
                                   #   add-recovery, remove-slot
 ```

@@ -314,53 +314,6 @@ def test_app_icon_has_all_sizes(app):
     assert {16, 32, 48, 256} <= sizes
 
 
-def test_plugin_dialog_toggle_install_update(app, tmp_path, monkeypatch):
-    from yaleno_wizard.gui import plugin_dialog as pd
-    from yaleno_wizard.plugins import manager
-    from yaleno_wizard.plugins.registry import find
-    from yaleno_wizard.settings import Profile
-
-    monkeypatch.setattr(pd, "confirm_install", lambda *a, **k: True)
-    prof = Profile()
-    dlg = pd.PluginDialog(prof)
-    it = dlg.item_for("prismlauncher")
-    assert it is not None and it.text(pd.COL_STATUS) == "aus"
-    it.setCheckState(pd.COL_ON, Qt.CheckState.Checked)
-    assert Profile.load().plugins_enabled == ["prismlauncher"] and dlg.changed
-    assert dlg.item_for("prismlauncher").text(pd.COL_STATUS) == "aktiv"
-
-    src = tmp_path / "demo.yml"
-    src.write_text("yaleno_plugin: 1\nid: demo\nname: Demo\nversion: 1.0.0\nsource: https://example.org/d.yml\n"
-                   "categories:\n  - id: demo-cat\n    name: D\n    items:\n"
-                   "      - id: a\n        label: A\n        paths: ['{CONFIG}/demo']\n")
-    dlg.install_source(str(src))
-    assert find("demo").enabled and dlg.current_id() == "demo"
-    assert "{CONFIG}/demo" in dlg.details.toPlainText()
-    assert dlg.btn_remove.isEnabled()
-
-    monkeypatch.setattr(manager, "fetch_text", lambda url: src.read_text().replace("1.0.0", "1.1.0"))
-    dlg._check()
-    _wait(lambda: "verfügbar" in dlg.status.text())
-    assert dlg.item_for("demo").text(pd.COL_STATUS) == "Update verfügbar"
-    dlg.tree.setCurrentItem(dlg.item_for("demo"))
-    dlg._update_selected()
-    assert find("demo").version == "1.1.0"
-    dlg.close()
-
-
-def test_tray_plugin_update_hint(app, tmp_path):
-    from types import SimpleNamespace
-    from yaleno_wizard.gui.tray import BackgroundSync
-    from yaleno_wizard.plugins.manager import UpdateCheck
-
-    upd = SimpleNamespace(id="demo", current=SimpleNamespace(name="Demo"),
-                          pending=SimpleNamespace(plugin=SimpleNamespace(version="2.0")))
-    bg = BackgroundSync(show_tray=False, plugin_check_fn=lambda prof: UpdateCheck(updates=[upd], checked=1))
-    bg.check_plugin_updates()
-    _wait(lambda: bg.plugin_updates)
-    assert bg.plugin_updates[0].id == "demo"
-
-
 def test_encryption_and_unlock_dialogs(app, tmp_path, monkeypatch):
     from yaleno_wizard.core import crypto
     from yaleno_wizard.core.store import Store
@@ -401,7 +354,6 @@ def test_encryption_and_unlock_dialogs(app, tmp_path, monkeypatch):
 
 def test_app_unlock_dialog(app, monkeypatch):
     from yaleno_wizard.gui.app_lock_dialog import AppUnlockDialog, ensure_app_unlocked
-    from yaleno_wizard.plugins import manager
     from yaleno_wizard.security import app_lock
     from yaleno_wizard.settings import Profile
 
@@ -410,7 +362,6 @@ def test_app_unlock_dialog(app, monkeypatch):
     assert ensure_app_unlocked(prof)  # keine Sperre
     app_lock.set_password(prof, "geheim1")
     app_lock.set_enabled(prof, True)
-    manager.set_enabled("app-sperre", True, prof)
     dlg = AppUnlockDialog(Profile.load())
     dlg.pw.setText("falsch")
     dlg._try()
@@ -423,16 +374,7 @@ def test_app_unlock_dialog(app, monkeypatch):
 def test_connection_page_oidc_and_login_flow_fields(app):
     from yaleno_wizard.gui.pages.connection import ConnectionPage
     from yaleno_wizard.gui.state import WizardState
-    from yaleno_wizard.plugins import manager
-    from yaleno_wizard.settings import Profile
 
-    page = ConnectionPage(WizardState())
-    page.rb_dav.setChecked(True)
-    assert not page.dav_form.isRowVisible(page.dav_auth) and page.browser_btn.isHidden()
-
-    prof = Profile()
-    manager.set_enabled("oidc", True, prof)
-    manager.set_enabled("nextcloud-login", True, prof)
     page = ConnectionPage(WizardState())
     page.show()
     page.rb_dav.setChecked(True)

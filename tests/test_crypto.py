@@ -166,20 +166,6 @@ def test_slot_management(tmp_path, storage):
     assert "Wiederherstellungsschlüssel" in "\n".join(encryption.describe_slots(store.encryption))
 
 
-def test_plugins_encrypted_in_store(tmp_path, storage):
-    store = Store(storage, "daten")
-    store.ensure_initialized()
-    store.put_plugin("demo", "yaleno_plugin: 1\nid: demo\n")
-    encryption.enable_encryption(store, "pc", PW)
-    assert store.list_plugins() == ["demo"]
-    store.put_plugin("zwei", "geheim: ja")
-    assert store.get_plugin("zwei") == "geheim: ja"
-    assert b"geheim" not in all_bytes(tmp_path / "server")
-    other = Store(storage, "daten")
-    other.unlock_password(PW)
-    assert other.list_plugins() == ["demo", "zwei"]
-
-
 def test_old_client_format_check(storage):
     store = Store(storage, "daten")
     encryption.enable_encryption(store, "pc", PW)

@@ -9,11 +9,10 @@ Layout auf dem Speicher::
         objects/<ab>/<sha256>              Dateiinhalte (inhaltsadressiert, dedupliziert)
         revisions/00000042.json.gz         vollständiger Dateibaum der Version 42
         revisions/00000042.info.json       Kurzinfo (Datum, Gerät, Änderungen)
-        plugins/<id>.yml                   Plugins, die andere Geräte übernehmen können
 
 Verschlüsselter Speicher (``store.json`` Version 2 mit Abschnitt ``encryption``, siehe
 ``core/crypto.py``): Inhalte liegen dann unter ``eobjects/`` (Name = HMAC der Prüfsumme),
-Versionen unter ``erevisions/`` und Plugins unter ``eplugins/`` – alles AES-256-GCM.
+Versionen unter ``erevisions/`` – alles AES-256-GCM.
 Lesbar bleiben nur ``store.json`` (Schlüsselplätze), ``HEAD`` und ``lock``.
 
 Jede Version beschreibt den *gesamten* Bestand. Die Versionen dienen nur dazu,
@@ -517,7 +516,7 @@ class Store:
     ) -> None:
         """Verschlüsselt einen bestehenden (oder leeren) Speicher. Aufrufer muss die Sperre halten.
 
-        Absturzsicher: Alles wird zuerst nach ``eobjects/``, ``erevisions/``, ``eplugins/``
+        Absturzsicher: Alles wird zuerst nach ``eobjects/``, ``erevisions/``
         geschrieben; erst danach wird ``store.json`` umgestellt und der alte Stand gelöscht.
         Bricht der Vorgang vorher ab, bleibt der unverschlüsselte Speicher gültig.
         """
@@ -571,12 +570,6 @@ class Store:
             done += size
         log(f"{len(shas)} Inhalte verschlüsselt.")
 
-        for pid in plain.list_plugins():
-            try:
-                enc.put_plugin(pid, plain.get_plugin(pid))
-            except (StorageError, OSError, UnicodeDecodeError, ValueError) as exc:
-                log(f"Plugin {pid} nicht übernommen: {exc}")
-
         # --- Umschalten: ab hier gilt der verschlüsselte Stand
         if plain.head() != head:
             raise StorageError("Der Speicher wurde während der Umstellung verändert.")
@@ -584,64 +577,12 @@ class Store:
         self._meta = enc._meta
         self.keys = keys
         progress(total, total, "aufräumen")
-        for d in ("objects", "revisions", "plugins"):
+        for d in ("objects", "revisions", "plugins"):  # plugins/: Überbleibsel älterer Versionen
             try:
                 self.storage.remove_tree(self._p(d))
             except (OSError, StorageError, NotImplementedError) as exc:
                 log(f"Alter Ordner {d}/ konnte nicht gelöscht werden: {exc}")
         log("Speicher ist jetzt verschlüsselt.")
-
-    # ------------------------------------------------------------ Plugins
-    def _plugin_dir(self) -> str:
-        return self._p("eplugins" if self.encrypted else "plugins")
-
-    def _plugin_path(self, plugin_id: str) -> str:
-        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", plugin_id):
-            raise ValueError(f"Ungültige Plugin-ID: {plugin_id!r}")
-        if self.encrypted:
-            return posixpath.join(self._plugin_dir(), self._need_keys().name("plugin", plugin_id) + ".bin")
-        return posixpath.join(self._plugin_dir(), f"{plugin_id}.yml")
-
-    def list_plugins(self) -> list[str]:
-        d = self._plugin_dir()
-        if not self.storage.is_dir(d):
-            return []
-        names = self.storage.listdir(d)
-        if not self.encrypted:
-            return sorted(n[:-4] for n in names
-                          if n.endswith(".yml") and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", n[:-4]))
-        keys = self._need_keys()
-        out = []
-        for n in names:
-            if not n.endswith(".bin"):
-                continue
-            try:
-                raw = keys.decrypt_bytes(self.storage.read_bytes(posixpath.join(d, n)), f"plugin:{n[:-4]}".encode())
-                pid = str(json.loads(raw)["id"])
-            except (CryptoError, ValueError, KeyError, OSError):
-                continue
-            out.append(pid)
-        return sorted(out)
-
-    def get_plugin(self, plugin_id: str) -> str:
-        raw = self.storage.read_bytes(self._plugin_path(plugin_id))
-        if not self.encrypted:
-            return raw.decode("utf-8")
-        name = posixpath.basename(self._plugin_path(plugin_id))[:-4]
-        try:
-            return str(json.loads(self._need_keys().decrypt_bytes(raw, f"plugin:{name}".encode()))["text"])
-        except CryptoError as exc:
-            raise StorageError(f"Plugin {plugin_id}: {exc}") from exc
-
-    def put_plugin(self, plugin_id: str, text: str) -> None:
-        self.storage.makedirs(self._plugin_dir())
-        path = self._plugin_path(plugin_id)
-        data = text.encode("utf-8")
-        if self.encrypted:
-            name = posixpath.basename(path)[:-4]
-            data = self._need_keys().encrypt_bytes(
-                json.dumps({"id": plugin_id, "text": text}).encode("utf-8"), f"plugin:{name}".encode())
-        self.storage.write_bytes_atomic(path, data)
 
     # ------------------------------------------------------------ Sperre
     def _read_lock(self) -> dict | None:

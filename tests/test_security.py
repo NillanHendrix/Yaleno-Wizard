@@ -10,7 +10,6 @@ import pytest
 
 from yaleno_wizard.core import crypto, encryption
 from yaleno_wizard.core.store import Store
-from yaleno_wizard.plugins import manager
 from yaleno_wizard.security import app_lock, fido2
 from yaleno_wizard.settings import Profile
 from yaleno_wizard.storage.local import LocalStorage
@@ -90,8 +89,6 @@ def test_app_lock_password_and_key(key):
         app_lock.set_enabled(prof, True)
     app_lock.set_password(prof, "geheim1")
     app_lock.set_enabled(prof, True)
-    assert not app_lock.active(prof)  # Plugin noch aus
-    manager.set_enabled("app-sperre", True, prof)
     assert app_lock.active(Profile.load())
     loaded = Profile.load()
     assert "geheim1" not in loaded.to_yaml()

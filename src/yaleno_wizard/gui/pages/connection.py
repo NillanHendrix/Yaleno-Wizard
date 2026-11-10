@@ -177,12 +177,8 @@ class ConnectionPage(QWizardPage):
         lay.addWidget(self.rb_local)
         lay.addWidget(self.local_box)
         lay.addStretch(1)
-        self.plugin_btn = QPushButton("Plugins …")
-        self.plugin_btn.setToolTip("Plugins verwalten – z. B. Anmeldung per OIDC oder im Browser freischalten.")
-        self.plugin_btn.clicked.connect(self._plugins)
         row = QHBoxLayout()
         row.addWidget(self.test_btn)
-        row.addWidget(self.plugin_btn)
         self.lock_btn = QPushButton("App-Sperre …")
         self.lock_btn.setToolTip("Wizard nur nach Passwort oder Security-Key/Passkey öffnen.")
         self.lock_btn.clicked.connect(self._app_lock)
@@ -204,7 +200,8 @@ class ConnectionPage(QWizardPage):
         self._update_pub()
         self._update_remember_labels()
         self._fill_secrets(p)
-        self._update_features()
+        self._ready = True
+        self._update_dav_auth()
 
     # ------------------------------------------------------------------ Anmeldedaten / Datei
     def _update_remember_labels(self) -> None:
@@ -259,12 +256,10 @@ class ConnectionPage(QWizardPage):
             loaded.backup_name = cur.backup_name
         if cur.sync_categories is not None:
             loaded.sync_categories, loaded.sync_excludes = cur.sync_categories, cur.sync_excludes
-        if cur.plugins_enabled:
-            loaded.plugins_enabled = cur.plugins_enabled
         self.state.profile = loaded
         self.state.close_storage()
         self._fill_fields(loaded)
-        self._update_features()
+        self._update_dav_auth()
         self._update_remember_labels()
         self.status.setText(f"Einstellungen aus {path} übernommen – mit „Weiter“ verbinden und speichern.")
 
@@ -454,45 +449,26 @@ class ConnectionPage(QWizardPage):
             msg += f"<br>⚠ Einstellungen konnten nicht gespeichert werden: {exc}"
         self.status.setText(msg)
         self._update_remember_labels()
-        from ..plugin_dialog import offer_from_store
-        offer_from_store(self, self.state)
         return True
-
-    def _plugins(self) -> None:
-        from ..plugin_dialog import open_plugin_dialog
-        open_plugin_dialog(self, self.state)
-        self._update_features()
 
     def _app_lock(self) -> None:
         from ..app_lock_dialog import AppLockSettingsDialog
         AppLockSettingsDialog(self.state.profile, self).exec()
 
-    def _update_features(self) -> None:
-        """Knöpfe für Funktionen ein-/ausblenden, die Plugins freischalten."""
-        from ...plugins.registry import feature_enabled
-        prof = self.state.profile
-        self.lock_btn.setVisible(feature_enabled("app_lock", prof))
-        self._feat_oidc = feature_enabled("oidc", prof) or prof.webdav_auth == "oidc"
-        self._feat_flow = feature_enabled("nextcloud_login_flow", prof)
-        self._update_dav_auth()
-
     def _oidc_mode(self) -> bool:
         return self.dav_auth.currentData() == "oidc"
 
     def _update_dav_auth(self) -> None:
-        if not hasattr(self, "_feat_oidc"):
+        if not getattr(self, "_ready", False):
             return
-        if not self._feat_oidc and self._oidc_mode():
-            self.dav_auth.setCurrentIndex(0)
         oidc = self._oidc_mode()
         f = self.dav_form
-        f.setRowVisible(self.dav_auth, self._feat_oidc)
         f.setRowVisible(self.pw_widget, not oidc)
         f.setRowVisible(self.dav_remember, not oidc)
         f.setRowVisible(self.dav_hint, not oidc)
         for w in (self.oidc_issuer, self.oidc_client, self.oidc_widget):
             f.setRowVisible(w, oidc)
-        self.browser_btn.setVisible(self._feat_flow and not oidc)
+        self.browser_btn.setVisible(not oidc)
         self.dav_user.setPlaceholderText("optional – wird bei Nextcloud ermittelt" if oidc else "")
         if oidc:
             from ...credentials import load_oidc_token

@@ -5,7 +5,7 @@ Ein zufälliger 32-Byte-**Hauptschlüssel** verschlüsselt alles. Er liegt im Sp
 oder Security-Key (FIDO2 hmac-secret) öffnen lassen. Aus dem Hauptschlüssel werden per HKDF
 abgeleitet:
 
-* ``data`` – AES-256-GCM für Inhalte, Versionen, Plugins
+* ``data`` – AES-256-GCM für Inhalte und Versionen
 * ``name`` – HMAC-SHA256 für Objektnamen (der Server sieht keine Prüfsummen bekannter Dateien)
 
 Datenformat (Strom)::

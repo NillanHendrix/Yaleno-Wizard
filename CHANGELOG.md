@@ -8,10 +8,6 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
 ### Hinzugefügt
 
-- 🧩 **Plugins als YAML-Dateien** (`type: catalog` für weitere Programme, `type: feature` für
-  Funktionen) mit **Plugin-Manager**: Dialog „Plugins …“, `yaleno-wizard plugin …`, Updates über die
-  Quell-URL je Plugin, täglicher Update-Hinweis im Infobereich, Verteilung über den Speicher an andere Geräte.
-- 🎮 Mitgeliefertes Plugin **Prism Launcher (Minecraft)**: Einstellungen, Konten und Instanzen.
 - 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers (AES-256-GCM, auch Dateinamen und Verlauf),
   Passwort + Wiederherstellungsschlüssel, absturzsichere Umstellung, `yaleno-wizard encryption …`.
 - 🔑 **Security-Keys/Passkeys (FIDO2)** zum Entsperren des Speichers und für die App-Sperre.

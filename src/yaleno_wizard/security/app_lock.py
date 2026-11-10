@@ -1,8 +1,8 @@
 """App-Sperre: Der Wizard öffnet sich erst nach Passwort oder Security-Key/Passkey.
 
 Schützt die **Bedienung** (z. B. am gemeinsam genutzten Rechner), nicht die Dateien auf der
-Festplatte – den Schutz der Daten im Speicher leistet die Verschlüsselung. Aktiv nur, wenn das
-Plugin „App-Sperre“ aktiviert ist. Einstellungen in ``yaleno.yml``::
+Festplatte – den Schutz der Daten im Speicher leistet die Verschlüsselung. Einstellungen in
+``yaleno.yml``::
 
     app_lock:
       enabled: true
@@ -49,10 +49,7 @@ def check_password(stored: str, password: str) -> bool:
 
 def active(profile: Profile) -> bool:
     """Muss vor dem Öffnen entsperrt werden?"""
-    if not profile.app_lock_enabled or not (profile.app_lock_password or profile.app_lock_keys):
-        return False
-    from ..plugins.registry import feature_enabled
-    return feature_enabled("app_lock", profile)
+    return profile.app_lock_enabled and bool(profile.app_lock_password or profile.app_lock_keys)
 
 
 def set_password(profile: Profile, password: str | None) -> None:
