@@ -13,6 +13,8 @@ unabhängig von einem Gerät. Jedes Gerät gleicht sich mit ihm ab. Frühere St�
 - 🕰️ **Versionsverlauf:** einzelne Dateien zurückholen oder den ganzen Stand zurücksetzen
 - 🤝 **Konflikte ohne Datenverlust:** die andere Fassung bleibt immer als Kopie erhalten
 - 🌙 **Hintergrund-Abgleich** mit Symbol im Infobereich und Autostart
+- 🗂️ **Was abgeglichen wird:** persönliche Dateien, Shell, Git & Editoren, Desktop (KDE, GNOME,
+  Hyprland), Browser, SSH-/GPG-Schlüssel, Paketlisten – einzeln an- und abwählbar
 - 🔐 **Passwort im Schlüsselbund** des Systems, alle Einstellungen in **einer YAML-Datei**
 - 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers, **App-Sperre**, **Security-Keys/Passkeys**
 - 🪪 **Anmeldung im Browser** bei Nextcloud (auch per Passkey) oder per **OpenID Connect (OIDC)**
@@ -54,23 +56,8 @@ Danach **Yaleno Wizard** im Startmenü öffnen und der [Anleitung](#speicher-vor
 
 ### 1️⃣ Installieren
 
-Beide Wege richten einen **Eintrag mit Logo im Startmenü** ein. 🧙 Den Windows-Installer gibt es
-auf GitHub unter **Releases** bzw. *Actions → build* (Artefakte); unter Linux reicht **ein Befehl**
-mit `install.sh`.
-
-<details open>
-<summary>🪟 <b>Windows</b></summary>
-
-1. `yaleno-wizard-setup-<version>.exe` herunterladen und starten.
-2. Installation **für dich allein** (ohne Admin-Rechte) oder für alle Benutzer wählen,
-   optional ein Desktop-Symbol anlegen. ✅
-3. Im Startmenü erscheinen **Yaleno Wizard**, **Yaleno Wizard – Hintergrund-Abgleich** und
-   **Deinstallieren**.
-
-Deinstallieren über *Einstellungen → Apps* oder den Startmenü-Eintrag. Einstellungen und
-gespeicherte Passwörter bleiben dabei erhalten.
-
-</details>
+Beide Wege richten einen **Eintrag mit Logo im Startmenü** ein. 🧙 Unter Linux reicht **ein Befehl**
+mit `install.sh`, für Windows gibt es einen Installer unter **Releases**.
 
 <details open>
 <summary>🐧 <b>Linux</b></summary>
@@ -108,23 +95,19 @@ Installiert wird (alles nur für dich):
 **Einstellungen und gespeicherte Passwörter bleiben** bei `--update` und `--uninstall` erhalten;
 `--uninstall` räumt zusätzlich die Build-Dateien weg.
 
-<details>
-<summary>Von Hand bauen (ohne das Skript)</summary>
-
-```bash
-git clone https://github.com/NillanHendrix/Yaleno-Wizard.git
-cd Yaleno-Wizard
-python -m venv .venv
-.venv/bin/pip install -e ".[dev]"                      # bringt PyInstaller mit
-.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec   # baut dist/yaleno-wizard
-sh packaging/linux/install.sh                          # Programm nach ~/.local/bin, Startmenü + Logo
-```
-
-Entfernen: `sh packaging/linux/install.sh --uninstall` (oder `yaleno-wizard --uninstall`).
-Das Skript nimmt die Programmdatei aus `dist/`. Fehlt sie (Bauen vergessen), sagt es, wo gesucht
-wurde und was zu tun ist (siehe [Häufige Fragen](#faq)).
-
 </details>
+
+<details open>
+<summary>🪟 <b>Windows</b></summary>
+
+1. `yaleno-wizard-setup-<version>.exe` herunterladen und starten.
+2. Installation **für dich allein** (ohne Admin-Rechte) oder für alle Benutzer wählen,
+   optional ein Desktop-Symbol anlegen. ✅
+3. Im Startmenü erscheinen **Yaleno Wizard**, **Yaleno Wizard – Hintergrund-Abgleich** und
+   **Deinstallieren**.
+
+Deinstallieren über *Einstellungen → Apps* oder den Startmenü-Eintrag. Einstellungen und
+gespeicherte Passwörter bleiben dabei erhalten.
 
 </details>
 
@@ -140,7 +123,8 @@ python -m venv .venv
 ```
 
 Für einen dauerhaften Startmenü-Eintrag unter Linux besser den Weg oben mit `install.sh` nehmen.
-`python -m yaleno_wizard --install` geht auch, der Eintrag startet dann aber das Python-Modul aus der `.venv` und funktioniert nur, solange der Ordner existiert.
+`python -m yaleno_wizard --install` geht auch, der Eintrag startet dann aber das Python-Modul aus
+der `.venv` und funktioniert nur, solange der Ordner existiert.
 
 </details>
 
@@ -159,7 +143,8 @@ Wähle **eine** Variante:
 3. Das angezeigte Passwort kopieren – du brauchst es gleich im Wizard. 🔑
 
 > 💡 Ein App-Passwort ist bei Zwei-Faktor-Anmeldung zwingend und lässt sich dort jederzeit
-> widerrufen, ohne dein eigentliches Passwort zu ändern.
+> widerrufen, ohne dein eigentliches Passwort zu ändern. Bequemer: die Schritte überspringen und
+> im Wizard **„Im Browser anmelden …“** nutzen – das legt das App-Passwort automatisch an.
 
 </details>
 
@@ -190,7 +175,14 @@ Nichts vorzubereiten – der Ordner muss nur auf jedem Gerät erreichbar sein.
 
 1. 🔌 **Speicher verbinden** – Variante wählen und ausfüllen:
    - *Nextcloud:* Server `https://cloud.example.org`, Benutzer, App-Passwort, Ordner (`Yaleno`).
+     Statt das App-Passwort von Hand anzulegen, geht auch 🌐 **„Im Browser anmelden …“**: Der
+     Wizard öffnet die Nextcloud-Anmeldung (Passkey, Zwei-Faktor, SSO – alles, was deine Nextcloud
+     kann) und übernimmt das dabei erzeugte App-Passwort. Mit 🪪 **OIDC** (Keycloak, Authentik,
+     Azure AD …): *Anmeldung* → **„OpenID Connect (OIDC)“**, Issuer-URL und Client-ID eintragen →
+     **„Mit OIDC anmelden …“** ([Voraussetzungen](#ref-oidc)).
    - *SFTP:* Server, Benutzer, SSH-Key, ggf. Passphrase, Ordner auf dem Server.
+   - *Ordner:* Pfad zum Netzlaufwerk, gemeinsamen Cloud-Ordner oder zur USB-Festplatte.
+   - **„Verbindung testen“** prüft die Angaben, bevor es weitergeht.
    - Haken bei **„dauerhaft speichern“** lassen – dann musst du das Passwort nie wieder eingeben. 🔐
    - Bei SFTP fragt der Wizard beim ersten Mal nach dem **Fingerprint** des Servers. Vergleiche ihn
      mit `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` auf dem Server.
@@ -272,20 +264,13 @@ Datei versehentlich gelöscht oder überschrieben? Kein Problem. 🛟
 Danach sieht der Server-Betreiber (z. B. deine Nextcloud) nur noch unlesbare Daten – auch Datei-
 und Ordnernamen sind verschlüsselt.
 
-**Security-Key / Passkey** 🔑: Im Dialog *Verschlüsselung* →
-**„Security-Key / Passkey hinzufügen …“**. Danach lässt sich der Speicher auch per Key öffnen
-(der Key muss *hmac-secret/PRF* können, z. B. YubiKey 5, Nitrokey 3, SoloKey 2).
+**Security-Key / Passkey** 🔑: Im Dialog *Verschlüsselung* → **„Security-Key / Passkey hinzufügen …“**.
+Danach lässt sich der Speicher auch per Key öffnen (der Key muss *hmac-secret/PRF* können,
+z. B. YubiKey 5, Nitrokey 3, SoloKey 2).
 
-**App-Sperre** 🔒: Verbindungsseite → **„App-Sperre …“** → Passwort und/oder
-Security-Key einrichten → **aktivieren**. Der Wizard öffnet sich dann erst nach dem Entsperren.
-
-**Anmeldung im Browser** 🌐: Bei Nextcloud auf
-**„Im Browser anmelden …“** klicken, im Browser anmelden (Passkey, Zwei-Faktor, SSO – alles was
-deine Nextcloud kann) und den Zugriff erlauben. Der Wizard übernimmt das erzeugte App-Passwort.
-
-**OIDC** 🪪: Bei Nextcloud *Anmeldung* → **„OpenID Connect (OIDC)“**, Anbieter
-(Issuer-URL) und Client-ID eintragen → **„Mit OIDC anmelden …“**. Details in der
-[Referenz](#ref-oidc).
+**App-Sperre** 🔒: Verbindungsseite → **„App-Sperre …“** → Passwort (mind. 6 Zeichen) und/oder
+Security-Key einrichten → **aktivieren**. Der Wizard öffnet sich dann erst nach dem Entsperren –
+auch aus dem Infobereich. Das schützt die Bedienung, nicht die Dateien auf der Festplatte.
 
 <a id="faq"></a>
 
@@ -373,39 +358,11 @@ z. B. in `~/.bashrc` bzw. `~/.zshrc` ergänzen: `export PATH="$HOME/.local/bin:$
 </details>
 
 <details>
-<summary>🐧 <code>packaging/linux/install.sh</code>: „Programmdatei 'yaleno-wizard' nicht gefunden“ / „No such file or directory“</summary>
-
-Betrifft nur das Bauen von Hand. `packaging/linux/install.sh` installiert die gebaute
-Programmdatei `dist/yaleno-wizard`. Die entsteht erst durch PyInstaller – also zuerst bauen, dann
-installieren (oder einfach `sh install.sh --install` im Hauptordner, das baut selbst):
-
-```bash
-.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec
-sh packaging/linux/install.sh
-```
-
-Ältere Versionen des Skripts suchten nur im eigenen Ordner und brachen deshalb immer mit
-`chmod: cannot access './yaleno-wizard': No such file or directory` ab – dann `git pull`.
-Ohne Bauen geht notfalls `.venv/bin/python -m yaleno_wizard --install` (Eintrag hängt an der `.venv`).
-
-</details>
-
-<details>
 <summary>🧭 Der Eintrag erscheint nicht im Startmenü</summary>
 
 Prüfen, ob `~/.local/share/applications/yaleno-wizard.desktop` existiert. Manche Desktops lesen
 das Menü erst nach Ab- und Anmelden neu ein. Liegt `~/.local/bin` nicht im `PATH`, funktioniert das
 Startmenü trotzdem – nur im Terminal muss `~/.local/bin/yaleno-wizard` ausgeschrieben werden.
-
-</details>
-
-<details>
-<summary>🧩 Wo sind die Plugins hin?</summary>
-
-Das Plugin-System gibt es nicht mehr. Verschlüsselung, App-Sperre, Security-Keys/Passkeys, die
-Nextcloud-Anmeldung im Browser und OIDC sind jetzt fest eingebaut und ohne Freischalten verfügbar
-(siehe [Verschlüsseln und absichern](#absichern)). Die Kategorie *Spiele* (Prism Launcher) entfällt.
-Ein alter Abschnitt `plugins:` in der `yaleno.yml` wird ignoriert und beim nächsten Speichern entfernt.
 
 </details>
 
@@ -434,6 +391,15 @@ Windows über Windows Hello schon.
 
 `~/.local/state/yaleno-wizard/log` bzw. `%LOCALAPPDATA%\yaleno-wizard\Logs` – ein Log je Vorgang
 im Wizard, `hintergrund.log` für den Hintergrund-Abgleich.
+
+</details>
+
+<details>
+<summary>🧩 Wo sind die Plugins hin?</summary>
+
+Es gibt keine Plugins mehr: Verschlüsselung, App-Sperre, Security-Keys, Browser-Anmeldung und OIDC
+sind fest eingebaut. Die Kategorie *Spiele* (Prism Launcher) entfällt. Ein alter Abschnitt `plugins:`
+in der `yaleno.yml` wird ignoriert und beim nächsten Speichern entfernt.
 
 </details>
 
@@ -473,16 +439,17 @@ gesperrt (`lock`).
 | Kategorie | Linux | Windows |
 |---|---|---|
 | 📁 Persönliche Dateien *(auch OS-übergreifend)* | Dokumente, Bilder, Musik, Videos, Schreibtisch, Downloads (XDG) | dieselben Known Folders |
-| 💲 Shell & Terminal | Bash, Zsh, Fish, Starship, tmux, Terminal-Emulatoren | PowerShell-Profile, Windows Terminal, Git-Bash |
+| 💲 Shell & Terminal | Bash, Zsh, Fish, Starship, tmux, Alacritty, Kitty, WezTerm, Foot, Ghostty, Konsole | PowerShell-Profile, Windows Terminal, Git-Bash |
 | 🔑 SSH- & GPG-Schlüssel ⚠️ | `~/.ssh`, `~/.gnupg`, Schlüsselbund | `.ssh`, GnuPG |
 | 🧑‍💻 Git & Entwicklung | Git, VS Code, (Neo)Vim, npm/cargo/pip-Konfig | Git, VS Code, (Neo)Vim |
-| 🎨 Desktop-Umgebung | KDE Plasma, GNOME (`dconf dump`), Hyprland (+ Waybar, Rofi, Mako …), GTK, Autostart, Schriften | Registry-Exporte (Systemsteuerung, Tastatur, Explorer, Umgebung), Schriften, Startmenü |
+| 🎨 Desktop-Umgebung / Windows-Einstellungen | KDE Plasma, GNOME (`dconf dump`), Hyprland + uwsm, Waybar, Rofi/Wofi/Fuzzel/Walker, Mako/Dunst/SwayNC, GTK, Autostart, Schriften | Registry-Exporte (Systemsteuerung, Tastatur, Explorer, Umgebung), Schriften, Startmenü |
 | 🌐 Browser & E-Mail ⚠️ | Firefox, Zen, LibreWolf, Floorp, Chromium, Chrome, Brave, Vivaldi, Thunderbird | Firefox, Zen, Chrome, Edge, Brave, Thunderbird |
 | 📦 Installierte Programme | Paketlisten: pacman, AUR, apt, dnf, Flatpak, Snap | `winget export` |
-| ⚙️ Systemkonfiguration | ausgewählte Dateien aus `/etc` | – |
-| 🧩 Weitere Anwendungs-Konfiguration | Rest von `~/.config` | Rest von `AppData\Roaming` |
+| ⚙️ Systemkonfiguration *(standardmäßig aus)* | ausgewählte Dateien aus `/etc` | – |
+| 🧩 Weitere Anwendungs-Konfiguration *(standardmäßig aus)* | Rest von `~/.config` | Rest von `AppData\Roaming` |
 
-Caches, `node_modules`, Papierkorb, Lock-Dateien usw. werden automatisch ausgelassen. 🧹
+⚠️ = sensible Daten, nur auf einen vertrauenswürdigen Speicher. Caches, `node_modules`, Papierkorb,
+Lock-Dateien usw. werden automatisch ausgelassen. 🧹
 Definiert sind die Kategorien in `src/yaleno_wizard/catalog/linux.py` und `windows.py`.
 
 Pfade werden über Platzhalter wie `{DOCUMENTS}` übersetzt, sodass dieselben Dateien unter Linux
@@ -625,6 +592,7 @@ Steht in einer Datei ein `password:`, wird es verwendet – auch ohne `password_
 
 ```bash
 yaleno-wizard                     # Wizard öffnen
+yaleno-wizard --version           # Version anzeigen
 yaleno-wizard --background        # Symbol im Infobereich (das trägt auch der Autostart ein)
 yaleno-wizard --sync              # einmal abgleichen ohne Oberfläche, z. B. per cron/systemd-Timer
                                   # Exit-Code: 0 ok, 1 einzelne Dateien fehlgeschlagen, 2 Fehler
@@ -674,12 +642,23 @@ python -m venv .venv
 .venv/bin/python scripts/make_icons.py     # 🎨 PNG/ICO neu erzeugen, nach Änderung an assets/yaleno.svg
 ```
 
+**Von Hand bauen und installieren** (Linux, ohne `install.sh`):
+
+```bash
+.venv/bin/pyinstaller --noconfirm yaleno_wizard.spec   # baut dist/yaleno-wizard
+sh packaging/linux/install.sh                          # Programm nach ~/.local/bin, Startmenü + Logo
+```
+
+Entfernen: `sh packaging/linux/install.sh --uninstall` (oder `yaleno-wizard --uninstall`).
+`packaging/linux/install.sh` nimmt die Programmdatei aus `dist/` – meldet es „Programmdatei
+nicht gefunden“, wurde PyInstaller noch nicht ausgeführt.
+
 **Installer bauen:**
 
-- 🪟 Windows: nach PyInstaller `iscc /DAppVersion=0.1.0 packaging\windows\yaleno-wizard.iss`
-  ([Inno Setup 6](https://jrsoftware.org/isinfo.php)) → `dist\yaleno-wizard-setup-0.1.0.exe`
-- 🐧 Linux: nach PyInstaller `scripts/pack_linux.sh` → `dist/yaleno-wizard-0.1.0-linux-x86_64.tar.gz`
-  (Ordner `yaleno-wizard-0.1.0/` mit `yaleno-wizard` + `install.sh`; der Workflow nutzt dasselbe
+- 🪟 Windows: nach PyInstaller `iscc /DAppVersion=0.2.0 packaging\windows\yaleno-wizard.iss`
+  ([Inno Setup 6](https://jrsoftware.org/isinfo.php)) → `dist\yaleno-wizard-setup-0.2.0.exe`
+- 🐧 Linux: nach PyInstaller `scripts/pack_linux.sh` → `dist/yaleno-wizard-0.2.0-linux-x86_64.tar.gz`
+  (Ordner `yaleno-wizard-0.2.0/` mit `yaleno-wizard` + `install.sh`; der Workflow nutzt dasselbe
   Skript). Zum Testen geht auch direkt `sh packaging/linux/install.sh` – es nimmt dann
   `dist/yaleno-wizard`. Gefahrlos ausprobieren mit einem leeren Home-Ordner:
   `HOME=$(mktemp -d) sh packaging/linux/install.sh`
@@ -689,4 +668,4 @@ python -m venv .venv
 
 Die Binärdatei muss auf dem jeweiligen Betriebssystem gebaut werden. Der Workflow
 `.github/workflows/build.yml` macht alles automatisch: bei manuellem Start als Artefakte, bei einem
-Tag `v*` (z. B. `git tag v0.1.0 && git push --tags`) zusätzlich als **Release** mit Installern. 🤖
+Tag `v*` (z. B. `git tag v0.2.0 && git push --tags`) zusätzlich als **Release** mit Installern. 🤖
