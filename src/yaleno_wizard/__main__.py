@@ -15,8 +15,23 @@ import argparse
 import sys
 
 
+def _use_system_trust_store() -> None:
+    """TLS-Zertifikate gegen den Zertifikatsspeicher des Betriebssystems prüfen.
+
+    Ohne das nutzt ``requests`` nur die mitgelieferte certifi-Liste – Server mit
+    eigener CA (z. B. Heimnetz-Nextcloud) würden abgelehnt, obwohl die CA im
+    System als vertrauenswürdig eingetragen ist.
+    """
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:  # noqa: BLE001 – fehlt truststore, bleibt es bei certifi
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    _use_system_trust_store()
     if argv[:1] == ["encryption"]:
         from yaleno_wizard.encryption_cli import main as encryption_main
         return encryption_main(argv[1:])
