@@ -132,3 +132,107 @@ def test_pack_without_build(tmp_path, home):
         shutil.copy(ROOT / rel, repo / rel)
     r = run(repo / "scripts" / "pack_linux.sh", home=home, cwd=tmp_path)
     assert r.returncode == 1 and "dist/yaleno-wizard fehlt" in r.stderr
+
+
+# ---------------------------------------------------------------------- install.sh im Hauptordner
+ONE_SH = ROOT / "install.sh"
+needs_x86 = pytest.mark.skipif(__import__("platform").machine() != "x86_64", reason="Releases nur für x86_64")
+
+
+def app_stub(path: Path, version: str, log: Path) -> Path:
+    """Platzhalter-Programm: kennt --version, --install (kopiert sich nach ~/.local/bin), --uninstall."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "#!/bin/sh\n"
+        f'echo "$(basename "$0") $*" >> "{log}"\n'
+        'case "$1" in\n'
+        f"  --version) echo {version} ;;\n"
+        '  --install) mkdir -p "$HOME/.local/bin"; cp "$0" "$HOME/.local/bin/yaleno-wizard";'
+        ' chmod +x "$HOME/.local/bin/yaleno-wizard" ;;\n'
+        '  --uninstall) rm -f "$HOME/.local/bin/yaleno-wizard" ;;\n'
+        "esac\n")
+    path.chmod(0o755)
+    return path
+
+
+def fake_release(tmp_path: Path, version: str, log: Path) -> Path:
+    """Release-Archiv + API-Antwort wie bei GitHub; gibt die API-Datei zurück."""
+    rel = tmp_path / f"release-{version}"
+    pkg = rel / f"yaleno-wizard-{version}"
+    app_stub(pkg / "yaleno-wizard", version, log)
+    archive = rel / f"yaleno-wizard-{version}-linux-x86_64.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        tar.add(pkg, arcname=pkg.name)
+    api = rel / "latest.json"
+    api.write_text('{"tag_name": "v%s", "assets": [{"name": "%s", "size": 1,\n'
+                   '  "browser_download_url": "file://%s"}]}' % (version, archive.name, archive))
+    return api
+
+
+def run_one(*args: str, home: Path, api: str = "none", **env: str) -> subprocess.CompletedProcess:
+    full = {"PATH": os.environ["PATH"], "HOME": str(home), "YALENO_API": api, **env}
+    return subprocess.run(["sh", str(ONE_SH), *args], cwd=home, env=full, capture_output=True, text=True)
+
+
+def test_one_needs_action(home):
+    r = run_one(home=home)
+    assert r.returncode == 2 and "--install" in r.stderr
+    r = run_one("--install", "--uninstall", home=home)
+    assert r.returncode == 1 and "nur eine" in r.stderr
+    r = run_one("--bla", home=home)
+    assert r.returncode == 2 and "Unbekannte Option: --bla" in r.stderr
+    r = run_one("--help", home=home)
+    assert r.returncode == 0 and "--update" in r.stdout
+
+
+@needs_x86
+def test_one_install_update_uninstall_release(tmp_path, home):
+    log = tmp_path / "log"
+    api = fake_release(tmp_path, "0.2.0", log)
+    r = run_one("--install", home=home, api=f"file://{api}")
+    assert r.returncode == 0, r.stderr
+    assert (home / ".local/bin/yaleno-wizard").exists()
+    assert "Yaleno Wizard 0.2.0 ist installiert" in r.stdout
+
+    r = run_one("--update", home=home, api=f"file://{api}")
+    assert r.returncode == 0, r.stderr
+    assert "0.2.0 ist aktuell" in r.stdout
+
+    api = fake_release(tmp_path, "0.10.0", log)  # Versionsvergleich numerisch, nicht als Text
+    r = run_one("--update", home=home, api=f"file://{api}")
+    assert r.returncode == 0, r.stderr
+    assert "0.2.0 → 0.10.0" in r.stdout and "0.10.0 ist installiert" in r.stdout
+
+    r = run_one("--uninstall", home=home)
+    assert r.returncode == 0, r.stderr
+    assert not (home / ".local/bin/yaleno-wizard").exists()
+    assert not (home / ".local/share/yaleno-wizard").exists()
+    r = run_one("--uninstall", home=home)
+    assert "nichts zu entfernen" in r.stdout
+
+
+@needs_x86
+def test_one_update_installs_when_missing(tmp_path, home):
+    api = fake_release(tmp_path, "0.2.0", tmp_path / "log")
+    r = run_one("--update", home=home, api=f"file://{api}")
+    assert r.returncode == 0, r.stderr
+    assert "noch nicht installiert" in r.stdout and (home / ".local/bin/yaleno-wizard").exists()
+
+
+def test_one_update_source_already_current(tmp_path, home):
+    """Ohne Release: gleicher Quellcode-Stand wie installiert → nichts bauen."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+    subprocess.run([*git[:3], "init", "-q", "-b", "main"], check=True)
+    (repo / "x").write_text("x")
+    subprocess.run([*git, "add", "x"], check=True)
+    subprocess.run([*git, "commit", "-qm", "x"], check=True)
+    sha = subprocess.run([*git[:3], "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    app_stub(home / ".local/bin/yaleno-wizard", "0.2.0", tmp_path / "log")
+    (home / ".local/share/yaleno-wizard").mkdir(parents=True)
+    (home / ".local/share/yaleno-wizard/installed-from").write_text(f"source {sha}\n")
+    r = run_one("--update", home=home, YALENO_REPO=str(repo))
+    assert r.returncode == 0, r.stderr
+    assert f"0.2.0 ist aktuell (Quellcode-Stand {sha[:7]})" in r.stdout
+    assert not (home / ".local/share/yaleno-wizard/build").exists()

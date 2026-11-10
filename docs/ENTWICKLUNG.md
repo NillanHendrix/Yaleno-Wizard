@@ -56,7 +56,7 @@ verfügbar“:
 Umfang des Umbaus (Schritte 2–4, Commit `706328d`): 41 Dateien, +4479 / −815 Zeilen.
 | 9 | „Plugin-Funktionalität per YAML, Plugin-Manager mit Verwaltung und Updates“ – gewünscht u. a. für Prism Launcher, Verschlüsselung, Passkeys und OIDC | Plugin-System, Plugin-Manager (Dialog, Kommandozeile, Update-Hinweis), Verteilung über den Speicher, Ende-zu-Ende-Verschlüsselung, Security-Keys/Passkeys, App-Sperre, Nextcloud-Login im Browser, OIDC. Branch `plugins`, 6 Commits. Siehe [Abschnitt 14](#14-plugins-verschlüsselung-und-anmeldung). |
 
-Aktueller Stand: 131 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
+Aktueller Stand: 135 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
 
 ## 3. Architektur
 
@@ -294,7 +294,7 @@ Dateien: `core/background.py`, `gui/tray.py`, `autostart.py`, `__main__.py`
 
 ## 10. Tests
 
-131 Tests, laufen in ca. 7 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
+135 Tests, laufen in ca. 7 Sekunden (`QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q`):
 
 | Datei | Tests | Inhalt |
 |---|---|---|
@@ -308,7 +308,7 @@ Dateien: `core/background.py`, `gui/tray.py`, `autostart.py`, `__main__.py`
 | `test_gui.py` | 13 | Plugin-Dialog (aktivieren, installieren, Update), Update-Hinweis im Infobereich, Verschlüsseln + Entsperren, App-Sperre, OIDC-/Login-Felder der Verbindungsseite; Wizard offscreen: Abgleichen, erneut abgleichen, Datei aus Version holen, Speicher zurücksetzen; Verbindung über WebDAV inkl. falschem Passwort und Vorausfüllen aus dem Schlüsselbund; Abwahl-Muster; Infobereich; Hintergrund-Dialog; App-Symbol in allen Größen |
 | `test_sftp.py` | 4 | Gegen echten SFTP-Testserver: Host-Key-Prüfung, Anmeldung, Abgleich zweier Geräte, Sperre |
 | `test_core.py` | 7 | Platzhalter, Scanner, Bestand-Datei |
-| `test_install_sh.py` | 9 | `install.sh` im Archiv- und Quellcode-Layout, fehlende Programmdatei, Deinstallation mit/ohne Installation, `pack_linux.sh` packen → entpacken → installieren |
+| `test_install_sh.py` | 13 | `install.sh` (ein Befehl): Optionen, Installieren/Aktualisieren/Entfernen aus einem Release (Versionsvergleich numerisch), `--update` ohne Installation, Quellcode-Stand schon aktuell; `packaging/linux/install.sh` im Archiv- und Quellcode-Layout, fehlende Programmdatei, Deinstallation mit/ohne Installation, `pack_linux.sh` packen → entpacken → installieren |
 
 Alle Tests laufen isoliert: Einstellungen, Logs und **Schlüsselbund** werden pro Test durch
 temporäre Ordner bzw. einen Speicher-Schlüsselbund ersetzt – der echte des Systems wird nie berührt.
@@ -431,6 +431,23 @@ chmod: cannot access './yaleno-wizard': No such file or directory
 - **Hinweis:** Ein vorhandener Autostart-Eintrag aus der Zeit vor dem Installer
   (`Exec=…/.venv/bin/python -m yaleno_wizard --background`, `Icon=folder-sync`) wird beim nächsten
   `--install` auf `~/.local/bin/yaleno-wizard` umgestellt.
+
+### Installation mit einem Befehl (`install.sh`)
+
+`install.sh` im Hauptordner ist der bequeme Weg für Linux; es lässt sich direkt per
+`curl … | sh -s -- --install` ausführen und ruft am Ende immer `yaleno-wizard --install` bzw.
+`--uninstall` des Programms auf (dieselbe Logik wie oben, kein zweiter Installationsweg).
+
+- **Quelle:** zuerst `releases/latest` der GitHub-API (Asset `*-linux-x86_64.tar.gz`, nur auf x86_64);
+  gibt es keins, wird der Quellcode (`--depth 1`) nach `~/.local/share/yaleno-wizard/build/src`
+  geholt, eine eigene venv angelegt und mit PyInstaller gebaut (PyInstaller-Cache ebenfalls dort).
+- **Stand:** `~/.local/share/yaleno-wizard/installed-from` enthält `release <version>` oder
+  `source <commit>`. `--update` vergleicht mit dem neuesten Release (`sort -V`) bzw. per
+  `git ls-remote` mit dem Branch und tut nichts, wenn schon aktuell (`--force` erzwingt).
+- **Entfernen:** Programm-`--uninstall`, danach Build-Ordner und Stand-Datei löschen; Einstellungen
+  und Schlüsselbund bleiben.
+- **Für Tests/Forks:** `YALENO_REPO`, `YALENO_REF`, `YALENO_API` (`none` = ohne Releases),
+  `YALENO_PYTHON`. Die Tests nutzen ein Release-Archiv mit Platzhalter-Programm über `file://`.
 
 ## 14. Plugins, Verschlüsselung und Anmeldung
 

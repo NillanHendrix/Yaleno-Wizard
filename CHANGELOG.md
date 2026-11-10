@@ -18,6 +18,9 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 - 🔒 **App-Sperre**: Wizard öffnet sich erst nach Passwort oder Security-Key.
 - 🌐 **Nextcloud-Anmeldung im Browser** (Login Flow v2, auch per Passkey/2FA) und 🪪 **OIDC**
   (PKCE, Refresh-Token im Schlüsselbund, Bearer-Zugriff auf WebDAV).
+- ⚡ **Installation mit einem Befehl** unter Linux: `install.sh --install | --update | --uninstall`
+  (auch per `curl … | sh -s -- --install`). Nimmt das fertige Release oder baut aus dem Quellcode,
+  `--update` installiert nur, wenn es etwas Neues gibt.
 - 🧙 **Logo** (Zauberhut in Abgleich-Pfeilen) für Fenster, Taskleiste, Infobereich und Programmdatei.
 - 🪟 **Windows-Installer** (`yaleno-wizard-setup-<version>.exe`): Startmenü-Einträge mit Logo
   (Wizard, Hintergrund-Abgleich, Deinstallieren), optional Desktop-Symbol, ohne Admin-Rechte.
