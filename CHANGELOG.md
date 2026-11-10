@@ -34,7 +34,7 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
 ## [0.1.0] – 2026-11-09
 
-Erste Version als Abgleich-Werkzeug (Commit `ab56463`). Ersetzt den bisherigen Backup-Assistenten.
+Erste Version als Abgleich-Werkzeug (Commit `706328d`). Ersetzt den bisherigen Backup-Assistenten.
 
 ### Hinzugefügt
 

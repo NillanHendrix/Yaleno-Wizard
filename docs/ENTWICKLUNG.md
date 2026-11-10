@@ -48,12 +48,12 @@ verfügbar“:
 | 2 | „Der Speicher soll die zentrale Einheit sein, Ordner nur zum Vor- und Zurückspringen, alles wird gesynct“ | Snapshot-Modell ersetzt durch **zentralen Speicher mit Versionsverlauf** und **Zwei-Wege-Abgleich**. Wizard umgebaut (Abgleichen / Verlauf). |
 | 3 | „WebDAV-Support für Nextcloud“ | Neuer Speichertyp **WebDAV** mit Nextcloud-Erkennung. |
 | 4 | „App-Passwort dauerhaft speichern, Synchronisation im Hintergrund, Authentifizierung in einer .yml-Datei“ | **Schlüsselbund**-Anbindung, **YAML-Einstellungsdatei**, **Hintergrund-Abgleich** (Infobereich, Autostart, `--sync`). |
-| 5 | Commit, Merge, Push | Ein Commit `ab56463` auf Branch `zentraler-speicher-sync`, per Fast-Forward nach `main`, nach GitHub gepusht. |
-| 6 | Dokumentation | `docs/ENTWICKLUNG.md`, README mit Anleitung und Emojis (`d3a0170`). |
+| 5 | Commit, Merge, Push | Ein Commit `706328d` auf Branch `zentraler-speicher-sync`, per Fast-Forward nach `main`, nach GitHub gepusht. |
+| 6 | Dokumentation | `docs/ENTWICKLUNG.md`, README mit Anleitung und Emojis (`57ceee4`). |
 | 7 | „Installer mit Logo und Starter im Startmenü“ | Logo (SVG → PNG/ICO), Windows-Installer (Inno Setup), Linux-Startmenü-Eintrag (`--install`), Release-Workflow. Siehe [Abschnitt 13](#13-logo-und-installer). |
 | 8 | „Der Installer unter Linux geht immer noch nicht: *file not found*“ | Ursache: `install.sh` fand die Programmdatei nur im Release-Archiv. **Behoben:** `install.sh` sucht auch in `dist/`, verständliche Fehlermeldung, `--uninstall` ohne Installation; neues `scripts/pack_linux.sh` (auch im Workflow), 9 Tests. Siehe [Abschnitt 13](#13-logo-und-installer). |
 
-Umfang des Umbaus (Schritte 2–4, Commit `ab56463`): 41 Dateien, +4479 / −815 Zeilen.
+Umfang des Umbaus (Schritte 2–4, Commit `706328d`): 41 Dateien, +4479 / −815 Zeilen.
 | 9 | „Plugin-Funktionalität per YAML, Plugin-Manager mit Verwaltung und Updates“ – gewünscht u. a. für Prism Launcher, Verschlüsselung, Passkeys und OIDC | Plugin-System, Plugin-Manager (Dialog, Kommandozeile, Update-Hinweis), Verteilung über den Speicher, Ende-zu-Ende-Verschlüsselung, Security-Keys/Passkeys, App-Sperre, Nextcloud-Login im Browser, OIDC. Branch `plugins`, 6 Commits. Siehe [Abschnitt 14](#14-plugins-verschlüsselung-und-anmeldung). |
 
 Aktueller Stand: 131 automatische Tests. Änderungen je Version: [CHANGELOG](../CHANGELOG.md).
