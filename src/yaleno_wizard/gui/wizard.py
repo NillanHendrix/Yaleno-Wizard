@@ -31,7 +31,7 @@ class YalenoWizard(QWizard):
         self.setButtonText(QWizard.WizardButton.FinishButton, "Fertig")
         self.setButtonText(QWizard.WizardButton.CancelButton, "Beenden")
         self.customButtonClicked.connect(self._restart)
-        self.resize(900, 680)
+        self.resize(1180, 720)
 
         s = self.state
         self.summary = SummaryPage(s)

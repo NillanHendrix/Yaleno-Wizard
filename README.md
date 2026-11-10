@@ -191,6 +191,9 @@ Nichts vorzubereiten – der Ordner muss nur auf jedem Gerät erreichbar sein.
 3. 🗂️ **Kategorien** wählen – z. B. *Persönliche Dateien*, *Shell & Terminal*, *Git & Entwicklung*.
 4. ☑️ **Dateien** – einzelne Ordner abwählen, die nicht abgeglichen werden sollen
    (z. B. *Downloads*). Die Auswahl wird gemerkt.
+   ✏️ Ein Klick auf eine Datei zeigt sie rechts an – Konfigurationsdateien (INI, KDE, gitconfig,
+   TOML, JSON, YAML) lassen sich dort bequem **als Formular** bearbeiten, alle anderen Textdateien
+   im Reiter **Text**. „Speichern“ schreibt die Datei sofort, der Abgleich nimmt die Änderung mit.
 5. 👀 **Vorschau** prüfen: was hochgeladen, heruntergeladen oder gelöscht wird.
 6. ▶️ **„Jetzt abgleichen“** – fertig! ✅
 

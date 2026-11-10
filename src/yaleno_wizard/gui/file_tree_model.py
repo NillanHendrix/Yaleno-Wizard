@@ -169,6 +169,30 @@ class FileTreeModel(QAbstractItemModel):
     def set_all(self, checked: bool) -> None:
         self.set_selection(set(self.leaves) if checked else set())
 
+    def refresh_entry(self, key: tuple[str, str]) -> None:
+        """Nach dem Bearbeiten einer Datei: Größe/Zeit neu anzeigen und Summen nachziehen."""
+        node = self.leaves.get(key)
+        if node is None or node.entry is None:
+            return
+        diff = node.entry.size - node.size_total
+        node.size_total = node.entry.size
+        sel_diff = diff if node.n_sel else 0
+        node.size_sel += sel_diff
+        a = node.parent
+        while a is not None:
+            a.size_total += diff
+            a.size_sel += sel_diff
+            a = a.parent
+        a = node
+        while a is not None and a is not self.root:
+            idx = self._index_for(a)
+            self.dataChanged.emit(idx, idx.siblingAtColumn(len(COLUMNS) - 1))
+            a = a.parent
+        self._emit_stats()
+
+    def node_at(self, index: QModelIndex) -> Node | None:
+        return index.internalPointer() if index.isValid() else None
+
     def stats(self) -> tuple[int, int]:
         return self.root.n_sel, self.root.size_sel
 

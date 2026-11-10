@@ -8,6 +8,10 @@ Hintergründe und Entscheidungen: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
 ### Hinzugefügt
 
+- ✏️ **Dateien ansehen und bearbeiten** auf der Seite *Dateien auswählen*: Datei anklicken, rechts
+  erscheint sie als **Formular** (INI/KDE-rc/gitconfig/TOML, JSON, YAML – Werte ändern, Einträge
+  hinzufügen/entfernen, Ja/Nein als Häkchen) oder als **Text**. Kommentare und Reihenfolge bleiben
+  bei INI-Dateien erhalten.
 - 💠 **Hyprland** in *Desktop-Umgebung*: `~/.config/hypr` und `uwsm`, dazu Wayland-Werkzeuge
   (Waybar, Rofi, Wofi, Fuzzel, Walker, Mako, Dunst, SwayNC, wlogout, kanshi).
 - 🛡️ **Ende-zu-Ende-Verschlüsselung** des ganzen Speichers (AES-256-GCM, auch Dateinamen und Verlauf),

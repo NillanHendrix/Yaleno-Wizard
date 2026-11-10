@@ -389,3 +389,84 @@ def test_connection_page_oidc_and_login_flow_fields(app):
     prof2 = page._profile_from_fields()
     assert prof2.webdav_auth == "oidc" and prof2.oidc_issuer == "https://id.example.org"
     page.close()
+
+
+def test_file_editor_form_and_text(app, tmp_path):
+    from yaleno_wizard.core.entry import Entry
+    from yaleno_wizard.gui.file_editor import TAB_FORM, TAB_TEXT, FileEditor
+    from PySide6.QtWidgets import QCheckBox, QLineEdit
+
+    p = tmp_path / ".gitconfig"
+    p.write_text("# Kommentar\n[user]\n\tname = Alice\n[core]\n\tautocrlf = false\n")
+    p.chmod(0o600)
+    e = Entry("dev", "{HOME}/.gitconfig", size=p.stat().st_size, source=p)
+    ed = FileEditor()
+    saved = []
+    ed.saved.connect(saved.append)
+    ed.open_entry(e, ".gitconfig")
+    assert ed.fmt == "ini" and ed.tabs.currentIndex() == TAB_FORM
+    assert not ed.b_save.isEnabled()
+
+    name = next(le for le in ed.form_host.findChildren(QLineEdit) if le.text() == "Alice")
+    name.setText("Bob")
+    name.textEdited.emit("Bob")
+    ed.form_host.findChildren(QCheckBox)[0].setChecked(True)
+    ed.add_section.setCurrentText("alias")
+    ed.add_key.setText("st")
+    ed.add_value.setText("status")
+    ed.add_btn.click()
+    assert ed.dirty and ed.b_save.isEnabled()
+
+    ed.tabs.setCurrentIndex(TAB_TEXT)  # Formular → Text
+    assert "\tname = Bob" in ed.text.toPlainText()
+    ed.text.setPlainText(ed.text.toPlainText() + "\tlg = log\n")
+    ed.tabs.setCurrentIndex(TAB_FORM)  # Text → Formular
+    assert any(le.text() == "log" for le in ed.form_host.findChildren(QLineEdit))
+
+    assert ed.save()
+    out = p.read_text()
+    assert out == ("# Kommentar\n[user]\n\tname = Bob\n[core]\n\tautocrlf = true\n\n"
+                   "[alias]\n\tst = status\n\tlg = log\n")
+    assert p.stat().st_mode & 0o777 == 0o600
+    assert saved == [e] and e.size == len(out.encode())
+    assert not ed.dirty
+
+    # fehlerhafte Zahl in JSON blockiert das Speichern
+    j = tmp_path / "s.json"
+    j.write_text('{"size": 12}')
+    ed.open_entry(Entry("x", "{HOME}/s.json", source=j), "s.json")
+    le = ed.form_host.findChildren(QLineEdit)[0]
+    le.setText("zwölf")
+    le.textEdited.emit("zwölf")
+    assert not ed.b_save.isEnabled()
+
+    ed.open_entry(Entry("x", "@cmd/pakete.txt"), "pakete")
+    assert ed.stack.currentIndex() == 0
+
+
+def test_files_page_opens_editor(app, tmp_path, monkeypatch, mapper, fake_home):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    from yaleno_wizard.gui import wizard as wz
+
+    w = wz.YalenoWizard()
+    w.state.mapper = mapper
+    w.show()
+    conn = w.page(wz.P_CONNECTION)
+    conn.rb_local.setChecked(True)
+    conn.local_dir.setText(str(tmp_path / "speicher"))
+    w.next()
+    w.page(wz.P_MODE).name.setText("testpc")
+    w.next()
+    _choose_categories(w, wz, ("shell",))
+    files = w.page(wz.P_FILES)
+
+    leaf = files.model.leaves[("shell", "{HOME}/.bashrc")]
+    idx = files.proxy.mapFromSource(files.model.createIndex(leaf.row, 0, leaf))
+    files.tree.setCurrentIndex(idx)
+    assert files.editor.path == fake_home["HOME"] / ".bashrc"
+    files.editor.text.setPlainText("alias ll='ls -la'\n")
+    assert files.editor.save()
+    assert (fake_home["HOME"] / ".bashrc").read_text() == "alias ll='ls -la'\n"
+    assert leaf.size_total == len("alias ll='ls -la'\n")
+    assert w.state.plan is None
+    w.close()
