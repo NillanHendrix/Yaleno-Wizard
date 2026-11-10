@@ -20,6 +20,18 @@ unabhängig von einem Gerät. Jedes Gerät gleicht sich mit ihm ab. Frühere St�
 - 🪪 **Anmeldung im Browser** bei Nextcloud (auch per Passkey) oder per **OpenID Connect (OIDC)**
 - 🐧🪟 läuft unter **Linux und Windows** – persönliche Dateien auch zwischen beiden
 
+### ⚡ Schnellstart
+
+🐧 **Linux** – ein Befehl im Terminal, keine Root-Rechte nötig:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --install
+```
+
+🪟 **Windows** – `yaleno-wizard-setup-<version>.exe` unter **Releases** herunterladen und starten.
+
+Danach **Yaleno Wizard** im Startmenü öffnen und der [Anleitung](#speicher-vorbereiten) folgen. 🧙
+
 ## 📑 Inhalt
 
 - [🚀 Anleitung](#anleitung)
@@ -66,15 +78,16 @@ gespeicherte Passwörter bleiben dabei erhalten.
 <details open>
 <summary>🐧 <b>Linux</b></summary>
 
-**Ein Befehl genügt** – installieren, aktualisieren, entfernen: ✨
+**Ein Befehl genügt** – je nachdem, was du tun willst: ✨
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --install
-curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --update
-curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --install     # installieren
+curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --update      # aktualisieren
+curl -fsSL https://raw.githubusercontent.com/NillanHendrix/Yaleno-Wizard/main/install.sh | sh -s -- --uninstall   # entfernen
 ```
 
-Liegt der Quellcode schon da, geht dasselbe mit `sh install.sh --install` (bzw. `--update`, `--uninstall`).
+Liegt der Quellcode schon da (`git clone …`), geht dasselbe ohne Download:
+`sh install.sh --install` bzw. `--update` oder `--uninstall`. Alle Optionen zeigt `sh install.sh --help`.
 
 Das Skript nimmt das fertige Release von GitHub, falls es eins gibt. Sonst baut es das Programm aus
 dem Quellcode – dafür braucht es **git und Python ≥ 3.11** (Debian/Ubuntu zusätzlich `python3-venv`),
@@ -129,8 +142,8 @@ python -m venv .venv
 .venv/bin/python -m yaleno_wizard          # Wizard starten
 ```
 
-Für einen dauerhaften Startmenü-Eintrag unter Linux besser den Weg oben mit `install.sh` nehmen. `python -m yaleno_wizard --install` geht auch, der Eintrag
-startet dann aber das Python-Modul aus der `.venv` und funktioniert nur, solange der Ordner existiert.
+Für einen dauerhaften Startmenü-Eintrag unter Linux besser den Weg oben mit `install.sh` nehmen.
+`python -m yaleno_wizard --install` geht auch, der Eintrag startet dann aber das Python-Modul aus der `.venv` und funktioniert nur, solange der Ordner existiert.
 
 </details>
 
@@ -372,10 +385,39 @@ auf allen Geräten mit gleichem Betriebssystem; nur mit einem vertrauenswürdige
 </details>
 
 <details>
-<summary>🐧 <code>install.sh</code>: „Programmdatei 'yaleno-wizard' nicht gefunden“ / „No such file or directory“</summary>
+<summary>🐧 <code>install.sh</code> bricht ab: „Python 3.11 oder neuer fehlt“, „git fehlt“, „Konnte keine Python-Umgebung anlegen“</summary>
 
-`packaging/linux/install.sh` installiert die gebaute Programmdatei `dist/yaleno-wizard`. Die
-entsteht erst durch PyInstaller – also zuerst bauen, dann installieren:
+Gibt es (noch) kein fertiges Release, baut `install.sh` das Programm selbst und braucht dafür
+**git**, **Python ≥ 3.11** und das venv-Modul. Nachinstallieren und den Befehl wiederholen:
+
+```bash
+sudo pacman -S git python                      # Arch, CachyOS, Manjaro
+sudo apt install git python3 python3-venv      # Debian, Ubuntu, Mint
+sudo dnf install git python3                   # Fedora
+```
+
+Ein bestimmtes Python wählen: `YALENO_PYTHON=python3.12 sh install.sh --install`.
+Schlägt der Build mittendrin fehl (z. B. Netz weg), einfach erneut starten – mit `--force`,
+falls `--update` „ist aktuell“ meldet.
+
+</details>
+
+<details>
+<summary>🐧 <code>yaleno-wizard</code> im Terminal: „command not found“</summary>
+
+Das Programm liegt in `~/.local/bin`. Manche Systeme haben diesen Ordner nicht im `PATH` –
+`install.sh` weist dann darauf hin. Im Startmenü funktioniert der Eintrag trotzdem. Fürs Terminal
+z. B. in `~/.bashrc` bzw. `~/.zshrc` ergänzen: `export PATH="$HOME/.local/bin:$PATH"`
+(fish: `fish_add_path ~/.local/bin`).
+
+</details>
+
+<details>
+<summary>🐧 <code>packaging/linux/install.sh</code>: „Programmdatei 'yaleno-wizard' nicht gefunden“ / „No such file or directory“</summary>
+
+Betrifft nur das Bauen von Hand. `packaging/linux/install.sh` installiert die gebaute
+Programmdatei `dist/yaleno-wizard`. Die entsteht erst durch PyInstaller – also zuerst bauen, dann
+installieren (oder einfach `sh install.sh --install` im Hauptordner, das baut selbst):
 
 ```bash
 .venv/bin/pyinstaller --noconfirm yaleno_wizard.spec
@@ -736,6 +778,9 @@ python -m venv .venv
   Skript). Zum Testen geht auch direkt `sh packaging/linux/install.sh` – es nimmt dann
   `dist/yaleno-wizard`. Gefahrlos ausprobieren mit einem leeren Home-Ordner:
   `HOME=$(mktemp -d) sh packaging/linux/install.sh`
+- ⚡ Ein-Befehl-Installation testen, ohne das eigene System anzufassen:
+  `HOME=$(mktemp -d) YALENO_REPO=$PWD sh install.sh --install` (baut den lokalen Stand von `main`;
+  `YALENO_API=none` überspringt die Release-Suche).
 
 Die Binärdatei muss auf dem jeweiligen Betriebssystem gebaut werden. Der Workflow
 `.github/workflows/build.yml` macht alles automatisch: bei manuellem Start als Artefakte, bei einem
